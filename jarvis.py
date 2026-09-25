@@ -12,16 +12,17 @@ from core.tts import TTSEngine
 from core.stt import STTEngine
 from core.audio import AudioRecorder
 from core.llm import OllamaBrain
+from core.face_gate import face_gate
 
 class JarvisVoiceCore:
-    """Manages the Phase 1 & 2 conversational voice loop with local LLM brain."""
+    """Manages the Phase 1, 2 & 3 conversational voice loop with local LLM brain & face gate."""
     
     def __init__(self, require_wake_word: bool = config.REQUIRE_WAKE_WORD):
         self.require_wake_word = require_wake_word
         self.wake_words = [w.lower() for w in config.WAKE_WORDS]
         self.active_session_until = 0.0
         
-        logger.log("INFO", "Initializing Jarvis Voice & Brain Core...")
+        logger.log("INFO", "Initializing Jarvis Voice, Brain & Vision Core...")
         
         # Initialize TTS
         self.tts = TTSEngine(
@@ -52,15 +53,20 @@ class JarvisVoiceCore:
                 logger.log("WARN", f"Could not initialize Ollama brain ({e}). Running in offline keyword mode.")
 
     def startup(self):
-        """Calibrates microphone and greets user."""
+        """Calibrates microphone, starts face gate, and greets user."""
         logger.log("INFO", "==================================================")
         logger.log("INFO", f"⚡ {config.ASSISTANT_NAME} VOICE CORE ONLINE ⚡")
         logger.log("INFO", f"• STT: faster-whisper ({self.stt.model_name}) on {self.stt.device}")
         logger.log("INFO", f"• TTS: pyttsx3 (SAPI5 offline)")
-        logger.log("INFO", f"• Wake Words: {', '.join(self.wake_words)}")
-        logger.log("INFO", f"• Mode: {'Wake-word gated' if self.require_wake_word else 'Always listening'}")
+        logger.log("INFO", f"• LLM: Ollama ({config.OLLAMA_MODEL})")
+        face_status = "Enrolled & Active" if face_gate.is_enrolled else "Not Enrolled (Run enroll_face.py)"
+        logger.log("INFO", f"• Face Gate: {face_status}")
+        logger.log("INFO", f"• Mode: {'Wake-word gated' if self.require_wake_word else 'Always listening (Continuous)'}")
         logger.log("INFO", "==================================================")
         
+        if config.FACE_RECOGNITION_ENABLED:
+            face_gate.start_background_scanner()
+
         if config.AUDIO_CALIBRATE_ON_START:
             self.recorder.calibrate_noise(duration=1.0)
             
@@ -242,7 +248,8 @@ class JarvisVoiceCore:
 
     def shutdown(self):
         """Clean shutdown of resources."""
-        logger.log("INFO", "Closing audio stream and voice engines...")
+        logger.log("INFO", "Closing audio stream, voice engines, and face gate...")
+        face_gate.stop()
         self.recorder.close()
         self.tts.stop()
         logger.log("INFO", "Jarvis voice core terminated cleanly.")

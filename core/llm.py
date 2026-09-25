@@ -120,15 +120,38 @@ class OllamaBrain:
         self.history.append({"role": "user", "content": user_query})
         self.trim_history()
 
+        # Phase 3: Biometric Face Gate (Recognized = full tools vs Unrecognized = chat-only)
+        from core.face_gate import face_gate
+        CONTROL_TOOLS = {"open_app", "close_app", "system_control", "file_op", "run_command", "keyboard_mouse"}
+        is_auth = face_gate.is_authorized() if getattr(config, "FACE_RECOGNITION_ENABLED", True) else True
+
+        if is_auth:
+            active_tools = TOOL_DEFINITIONS
+        else:
+            # Unrecognized: filter out all system control tools (chat-only mode)
+            active_tools = [t for t in TOOL_DEFINITIONS if t["function"]["name"] not in CONTROL_TOOLS]
+
+        messages = list(self.history)
+        if not is_auth:
+            messages.append({
+                "role": "system",
+                "content": (
+                    "SECURITY ALERT: Biometric facial recognition is currently UNAUTHORIZED / UNRECOGNIZED. "
+                    "You are restricted to chat-only mode. If the user asks to open/close apps, control the system, "
+                    "or manage files, explicitly respond: 'Access denied, Sir. Biometric facial authentication required to execute system control actions.'"
+                )
+            })
+
         payload = {
             "model": self.model,
-            "messages": self.history,
-            "tools": TOOL_DEFINITIONS,
+            "messages": messages,
             "stream": False,
             "options": {
                 "temperature": 0.3,
             }
         }
+        if active_tools:
+            payload["tools"] = active_tools
 
         try:
             logger.log("THINKING", f"Querying Ollama ({self.model})...")
@@ -147,8 +170,19 @@ class OllamaBrain:
 
         # If LLM requested tool executions
         if tool_calls:
+            # Secondary security guard: block control tools if unauthorized
+            if not is_auth and any(tc.get("function", {}).get("name") in CONTROL_TOOLS for tc in tool_calls):
+                elapsed = (time.perf_counter() - t0) * 1000
+                denied_msg = (
+                    f"Access denied, {config.USER_NAME}. Biometric facial authentication required "
+                    f"to execute system control actions. I am restricted to chat-only mode."
+                )
+                logger.log("WARN", f"Face Gate blocked control action. Last status: {face_gate.last_status}")
+                self.history.pop()  # remove user message to keep conversation state consistent
+                return denied_msg, elapsed
+
             self.history.append(message)
-            
+
             for tc in tool_calls:
                 fn = tc.get("function", {})
                 name = fn.get("name", "")
@@ -194,6 +228,10 @@ class OllamaBrain:
 
         # Conversational response
         reply = message.get("content", "").strip()
+        if reply.lower().startswith("assistant\n"):
+            reply = reply[10:].strip()
+        elif reply.lower().startswith("assistant:"):
+            reply = reply[10:].strip()
         
         # Handle cases where model emitted raw JSON in content instead of natural speech
         if reply.startswith("{") and "name" in reply:

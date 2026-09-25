@@ -47,3 +47,9 @@ OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODEL = "llama3.2:3b"     # "llama3.2:3b" (ultra-fast) or "llama3.1:8b"
 MAX_CONVERSATION_TURNS = 10
 
+# Face Recognition Gate Settings (Phase 3)
+FACE_RECOGNITION_ENABLED = True
+FACE_GATE_BYPASS = False          # Set to True to bypass face gating for debugging
+FACE_CHECK_INTERVAL = 4.0         # Seconds between background webcam face checks
+FACE_TOLERANCE = 0.52             # Distance threshold (lower = stricter match)
+
