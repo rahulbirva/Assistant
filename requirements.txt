@@ -12,3 +12,4 @@ opencv-python>=4.8.0
 dlib-bin>=19.24.0
 face-recognition>=1.3.0
 setuptools<70
+screen-brightness-control>=0.27.0

@@ -1,14 +1,17 @@
 """
 Tool definitions and execution layer for Jarvis (Phase 2 & Phase 4).
-Supports function calling with safety gating for destructive actions.
+Supports function calling with safety gating for destructive actions and full computer control.
 """
 import os
+import re
 import sys
 import time
-import subprocess
 import shutil
+import ctypes
+import webbrowser
+import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 from core.logger import logger
 import config
 
@@ -19,8 +22,14 @@ except ImportError:
 
 try:
     import pyautogui
+    pyautogui.FAILSAFE = False
 except ImportError:
     pyautogui = None
+
+try:
+    import screen_brightness_control as sbc
+except ImportError:
+    sbc = None
 
 
 # OpenAI/Ollama compatible tool definitions
@@ -29,13 +38,13 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "get_status",
-            "description": "Get real-time system status including current time, date, battery level, CPU/memory usage, and running applications.",
+            "description": "Get real-time system status including current time, date, battery level, CPU/memory usage, network/Wi-Fi connection, screen brightness, and running applications.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "category": {
                         "type": "string",
-                        "enum": ["all", "time", "battery", "performance", "running_apps"],
+                        "enum": ["all", "time", "battery", "performance", "network", "brightness", "running_apps"],
                         "description": "Specific status category to retrieve. Defaults to 'all'."
                     }
                 },
@@ -47,13 +56,13 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "open_app",
-            "description": "Launch an application on Windows (e.g., notepad, chrome, spotify, calculator, vscode, explorer).",
+            "description": "Launch an application on Windows or open a website in the default browser (e.g. notepad, chrome, spotify, calculator, vscode, youtube, github, settings).",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "name": {
                         "type": "string",
-                        "description": "Name or executable of the application to launch (e.g., 'notepad', 'chrome', 'spotify', 'calculator', 'code', 'explorer')."
+                        "description": "Name or executable of the application, or website name/URL to launch (e.g. 'notepad', 'chrome', 'spotify', 'calculator', 'youtube', 'github', 'settings')."
                     }
                 },
                 "required": ["name"]
@@ -70,7 +79,7 @@ TOOL_DEFINITIONS = [
                 "properties": {
                     "name": {
                         "type": "string",
-                        "description": "Name of the application or process to close (e.g., 'notepad', 'chrome', 'spotify')."
+                        "description": "Name of the application or process to close (e.g. 'notepad', 'chrome', 'spotify')."
                     }
                 },
                 "required": ["name"]
@@ -81,14 +90,22 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "system_control",
-            "description": "Control system hardware and states: volume up/down/mute, lock workstation, sleep, shutdown, or restart.",
+            "description": "Control system hardware and states: volume up/down/mute, brightness up/down/set, lock workstation, sleep, shutdown, or restart.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["volume_up", "volume_down", "mute", "unmute", "lock", "sleep", "shutdown", "restart"],
+                        "enum": [
+                            "volume_up", "volume_down", "mute", "unmute",
+                            "brightness_up", "brightness_down", "brightness_set",
+                            "lock", "sleep", "shutdown", "restart"
+                        ],
                         "description": "The system control action to perform."
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "Optional numeric value for actions like 'brightness_set' (e.g., '70')."
                     }
                 },
                 "required": ["action"]
@@ -110,11 +127,11 @@ TOOL_DEFINITIONS = [
                     },
                     "path": {
                         "type": "string",
-                        "description": "Target file or folder path."
+                        "description": "Target file or folder path (supports ~ and environment variables)."
                     },
                     "destination": {
                         "type": "string",
-                        "description": "Optional destination path for move operations or content for create_file."
+                        "description": "Optional destination path for move operations, text content for create_file, or search query."
                     }
                 },
                 "required": ["action", "path"]
@@ -142,18 +159,22 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "keyboard_mouse",
-            "description": "Automate keyboard typing, shortcut presses, or mouse clicks.",
+            "description": "Automate keyboard typing, shortcut key presses, mouse clicks, or scrolling.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["type", "press_key", "hotkey", "click"],
-                        "description": "Action type: 'type' text, 'press_key' (e.g. enter, space), 'hotkey' (e.g. ['ctrl', 'c']), or 'click'."
+                        "enum": ["type", "press_key", "hotkey", "click", "scroll"],
+                        "description": "Action type: 'type' text, 'press_key' (e.g. enter, space), 'hotkey' (e.g. 'ctrl+c', 'win+d'), 'click', or 'scroll'."
                     },
                     "text_or_key": {
                         "type": "string",
-                        "description": "The text to type or key name to press."
+                        "description": "The text to type or key/hotkey combination to press."
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "Optional scroll amount (e.g. '300' or '-300') or click target."
                     }
                 },
                 "required": ["action"]
@@ -174,6 +195,7 @@ class ToolExecutor:
         "chrome": "chrome.exe",
         "google chrome": "chrome.exe",
         "brave": "brave.exe",
+        "edge": "msedge.exe",
         "spotify": "spotify.exe",
         "code": "code",
         "vscode": "code",
@@ -185,7 +207,22 @@ class ToolExecutor:
         "powershell": "powershell.exe",
         "cmd": "cmd.exe",
         "task manager": "taskmgr.exe",
+        "taskmgr": "taskmgr.exe",
         "settings": "start ms-settings:",
+        "paint": "mspaint.exe",
+    }
+
+    WEB_SHORTCUTS = {
+        "youtube": "https://www.youtube.com",
+        "google": "https://www.google.com",
+        "github": "https://www.github.com",
+        "reddit": "https://www.reddit.com",
+        "twitter": "https://twitter.com",
+        "x": "https://x.com",
+        "gmail": "https://mail.google.com",
+        "instagram": "https://www.instagram.com",
+        "netflix": "https://www.netflix.com",
+        "chatgpt": "https://chatgpt.com",
     }
 
     @staticmethod
@@ -203,12 +240,16 @@ class ToolExecutor:
             action = args.get("action", "")
             path = args.get("path", "")
             if action == "delete":
-                return True, f"permanently delete the file or folder at {path}"
+                return True, f"permanently delete the file or folder at '{path}'"
 
         elif name == "run_command":
-            cmd = args.get("cmd", "").lower()
-            safe_prefixes = ["dir", "echo", "whoami", "ipconfig", "get-date", "hostname", "ping"]
-            if not any(cmd.strip().startswith(p) for p in safe_prefixes):
+            cmd = args.get("cmd", "").lower().strip()
+            safe_prefixes = [
+                "dir", "ls", "echo", "whoami", "ipconfig", "get-date",
+                "hostname", "ping", "systeminfo", "get-process", "tasklist",
+                "netsh", "pwd", "get-item"
+            ]
+            if not any(cmd.startswith(p) for p in safe_prefixes):
                 return True, f"execute the shell command: '{cmd}'"
 
         return False, ""
@@ -232,40 +273,102 @@ class ToolExecutor:
         category = args.get("category", "all")
         parts = []
 
-        now = time.strftime("%I:%M %p, %A, %B %d, %Y")
-        parts.append(f"Current Time: {now}")
+        # Time & Date
+        if category in ["all", "time"]:
+            now = time.strftime("%I:%M %p, %A, %B %d, %Y")
+            parts.append(f"Current Time: {now}")
 
+        # Battery
         if category in ["all", "battery"]:
             if psutil and hasattr(psutil, "sensors_battery"):
-                battery = psutil.sensors_battery()
-                if battery:
-                    plugged = "charging" if battery.power_plugged else "on battery"
-                    parts.append(f"Battery: {battery.percent}% ({plugged})")
-                else:
-                    parts.append("Battery: Desktop PC / Direct Power")
-
-        if category in ["all", "performance"] and psutil:
-            cpu = psutil.cpu_percent(interval=0.1)
-            mem = psutil.virtual_memory()
-            parts.append(f"CPU Usage: {cpu}% | RAM: {mem.percent}% ({mem.used // (1024**2)}MB used)")
-
-        if category in ["all", "running_apps"] and psutil:
-            common_apps = ["chrome.exe", "brave.exe", "code.exe", "spotify.exe", "discord.exe", "notepad.exe"]
-            running = set()
-            for p in psutil.process_iter(["name"]):
                 try:
-                    pname = p.info["name"].lower() if p.info["name"] else ""
-                    if pname in common_apps:
-                        running.add(pname.replace(".exe", "").capitalize())
+                    battery = psutil.sensors_battery()
+                    if battery:
+                        plugged = "charging" if battery.power_plugged else "on battery"
+                        parts.append(f"Battery: {battery.percent}% ({plugged})")
+                    else:
+                        parts.append("Battery: Desktop PC / Direct Power")
                 except Exception:
                     pass
-            if running:
-                parts.append(f"Key Running Apps: {', '.join(sorted(running))}")
 
-        return "; ".join(parts)
+        # CPU & Memory Performance
+        if category in ["all", "performance"] and psutil:
+            try:
+                cpu = psutil.cpu_percent(interval=0.1)
+                mem = psutil.virtual_memory()
+                parts.append(f"CPU Usage: {cpu}% | RAM: {mem.percent}% ({mem.used // (1024**2)}MB used)")
+            except Exception:
+                pass
+
+        # Network / Wi-Fi
+        if category in ["all", "network"]:
+            try:
+                res = subprocess.run("netsh wlan show interfaces", shell=True, capture_output=True, text=True, timeout=5)
+                output = res.stdout
+                ssid_match = re.search(r"^\s*SSID\s*:\s*(.+)$", output, re.MULTILINE)
+                signal_match = re.search(r"^\s*Signal\s*:\s*(.+)$", output, re.MULTILINE)
+                state_match = re.search(r"^\s*State\s*:\s*(.+)$", output, re.MULTILINE)
+
+                if ssid_match and signal_match:
+                    ssid = ssid_match.group(1).strip()
+                    signal = signal_match.group(1).strip()
+                    parts.append(f"Wi-Fi: Connected to '{ssid}' (Signal: {signal})")
+                elif state_match:
+                    parts.append(f"Wi-Fi State: {state_match.group(1).strip()}")
+                else:
+                    parts.append("Network: Connected")
+            except Exception:
+                parts.append("Network: Status unavailable")
+
+        # Screen Brightness
+        if category in ["all", "brightness"]:
+            if sbc:
+                try:
+                    br = sbc.get_brightness()
+                    if br:
+                        level = br[0] if isinstance(br, list) else br
+                        parts.append(f"Screen Brightness: {level}%")
+                except Exception:
+                    pass
+
+        # Running Apps
+        if category in ["all", "running_apps"] and psutil:
+            common_apps = [
+                "chrome.exe", "brave.exe", "msedge.exe", "code.exe",
+                "spotify.exe", "discord.exe", "notepad.exe", "calc.exe", "calc.exe"
+            ]
+            running = set()
+            try:
+                for p in psutil.process_iter(["name"]):
+                    try:
+                        pname = p.info["name"].lower() if p.info and p.info["name"] else ""
+                        if pname in common_apps:
+                            running.add(pname.replace(".exe", "").capitalize())
+                    except Exception:
+                        pass
+                if running:
+                    parts.append(f"Key Running Apps: {', '.join(sorted(running))}")
+            except Exception:
+                pass
+
+        return "; ".join(parts) if parts else "Status report unavailable."
 
     def _tool_open_app(self, args: Dict[str, Any]) -> str:
         name = args.get("name", "").lower().strip()
+        if not name:
+            return "Application name was not specified."
+
+        # Check for web shortcuts or URLs
+        if name in self.WEB_SHORTCUTS:
+            url = self.WEB_SHORTCUTS[name]
+            webbrowser.open(url)
+            return f"Opened {name} in your browser."
+
+        if name.startswith(("http://", "https://", "www.")) or any(name.endswith(ext) for ext in [".com", ".org", ".net", ".io", ".co"]):
+            url = name if name.startswith("http") else f"https://{name}"
+            webbrowser.open(url)
+            return f"Opened {url} in your browser."
+
         exe = self.APP_ALIASES.get(name, name)
 
         if exe.startswith("start "):
@@ -279,74 +382,138 @@ class ToolExecutor:
             else:
                 os.startfile(exe)
                 return f"Successfully launched {name}."
-        except Exception as e:
-            # Try powershell start
+        except Exception:
+            # Fallback to powershell Start-Process
             try:
                 subprocess.Popen(["powershell", "-c", f"Start-Process '{name}'"], shell=True)
-                return f"Launched {name} via PowerShell."
-            except Exception:
+                return f"Launched {name} via Windows shell."
+            except Exception as e:
                 return f"Could not find or open application: {name}."
 
     def _tool_close_app(self, args: Dict[str, Any]) -> str:
         name = args.get("name", "").lower().strip()
+        if not name:
+            return "Application name was not specified."
+
         exe = self.APP_ALIASES.get(name, name)
-        if not exe.endswith(".exe"):
+        if not exe.endswith(".exe") and not exe.startswith("start "):
             exe += ".exe"
+
         cmd = f"taskkill /IM {exe} /F"
         res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         if res.returncode == 0:
             return f"Closed {name}."
+
+        # Try matching via psutil if name didn't match directly
+        if psutil:
+            closed_count = 0
+            for proc in psutil.process_iter(["name"]):
+                try:
+                    pname = proc.info["name"].lower() if proc.info and proc.info["name"] else ""
+                    if name in pname:
+                        proc.terminate()
+                        closed_count += 1
+                except Exception:
+                    pass
+            if closed_count > 0:
+                return f"Terminated {closed_count} processes for {name}."
+
         return f"Application {name} was not running or could not be closed."
 
     def _tool_system_control(self, args: Dict[str, Any]) -> str:
-        action = args.get("action", "")
+        action = args.get("action", "").lower().strip()
+        val_str = args.get("value", "")
+
+        # Volume control using native Windows keybd_event (instant, zero failsafe triggers)
+        VK_VOLUME_MUTE = 0xAD
+        VK_VOLUME_DOWN = 0xAE
+        VK_VOLUME_UP = 0xAF
+
         if action == "volume_up":
-            if pyautogui:
-                for _ in range(5):
-                    pyautogui.press("volumeup")
+            for _ in range(5):
+                ctypes.windll.user32.keybd_event(VK_VOLUME_UP, 0, 0, 0)
+                ctypes.windll.user32.keybd_event(VK_VOLUME_UP, 0, 2, 0)
             return "Volume increased."
         elif action == "volume_down":
-            if pyautogui:
-                for _ in range(5):
-                    pyautogui.press("volumedown")
+            for _ in range(5):
+                ctypes.windll.user32.keybd_event(VK_VOLUME_DOWN, 0, 0, 0)
+                ctypes.windll.user32.keybd_event(VK_VOLUME_DOWN, 0, 2, 0)
             return "Volume decreased."
         elif action in ["mute", "unmute"]:
-            if pyautogui:
-                pyautogui.press("volumemute")
+            ctypes.windll.user32.keybd_event(VK_VOLUME_MUTE, 0, 0, 0)
+            ctypes.windll.user32.keybd_event(VK_VOLUME_MUTE, 0, 2, 0)
             return f"Audio {'muted' if action == 'mute' else 'unmuted'}."
+
+        # Brightness control
+        elif action in ["brightness_up", "brightness_down", "brightness_set"]:
+            if not sbc:
+                return "Screen brightness control is not available on this display."
+            try:
+                curr_list = sbc.get_brightness()
+                curr = curr_list[0] if isinstance(curr_list, list) and curr_list else 50
+                if action == "brightness_up":
+                    new_val = min(100, curr + 15)
+                elif action == "brightness_down":
+                    new_val = max(0, curr - 15)
+                else:  # brightness_set
+                    try:
+                        new_val = max(0, min(100, int(val_str))) if val_str else curr
+                    except ValueError:
+                        new_val = curr
+                sbc.set_brightness(new_val)
+                return f"Screen brightness set to {new_val}%."
+            except Exception as e:
+                return f"Failed to adjust brightness: {e}"
+
+        # Workstation Lock
         elif action == "lock":
             subprocess.run("rundll32.exe user32.dll,LockWorkStation", shell=True)
             return "Workstation locked."
+
+        # Sleep
         elif action == "sleep":
             subprocess.run("rundll32.exe powrprof.dll,SetSuspendState 0,1,0", shell=True)
             return "Putting computer to sleep."
+
+        # Shutdown & Restart (destructively gated)
         elif action == "shutdown":
-            subprocess.run("shutdown /s /t 10", shell=True)
+            subprocess.run("shutdown /s /t 15", shell=True)
             return "System shutdown initiated."
         elif action == "restart":
-            subprocess.run("shutdown /r /t 10", shell=True)
+            subprocess.run("shutdown /r /t 15", shell=True)
             return "System restart initiated."
+
         return f"Unknown system action: {action}"
 
     def _tool_file_op(self, args: Dict[str, Any]) -> str:
-        action = args.get("action", "")
-        path_str = args.get("path", "")
-        dest_str = args.get("destination", "")
-        p = Path(os.path.expandvars(path_str)).resolve()
+        action = args.get("action", "").lower().strip()
+        path_str = args.get("path", "").strip()
+        dest_str = args.get("destination", "").strip()
+
+        if not path_str:
+            return "Error: File path is required."
+
+        expanded_path = os.path.expanduser(os.path.expandvars(path_str))
+        p = Path(expanded_path).resolve()
 
         if action == "list":
             if not p.exists():
                 return f"Path does not exist: {p}"
             if p.is_dir():
-                items = [f.name + ("/" if f.is_dir() else "") for f in list(p.iterdir())[:15]]
+                items = []
+                for item in list(p.iterdir())[:20]:
+                    if item.is_dir():
+                        items.append(f"[DIR] {item.name}")
+                    else:
+                        size_kb = item.stat().st_size / 1024
+                        items.append(f"{item.name} ({size_kb:.1f} KB)")
                 return f"Contents of {p.name}: {', '.join(items) if items else 'Empty directory'}"
             return f"{p.name} is a file ({p.stat().st_size} bytes)."
 
         elif action == "create_file":
             p.parent.mkdir(parents=True, exist_ok=True)
-            content = dest_str or ""
-            p.write_text(content, encoding="utf-8")
-            return f"Created file at {p}."
+            p.write_text(dest_str, encoding="utf-8")
+            return f"Created file at {p} with {len(dest_str)} characters."
 
         elif action == "create_dir":
             p.mkdir(parents=True, exist_ok=True)
@@ -354,50 +521,83 @@ class ToolExecutor:
 
         elif action == "delete":
             if not p.exists():
-                return f"File does not exist: {p}"
+                return f"Path does not exist: {p}"
             if p.is_file():
                 p.unlink()
             elif p.is_dir():
                 shutil.rmtree(p)
-            return f"Deleted {p}."
+            return f"Successfully deleted {p}."
 
         elif action == "move":
             if not dest_str:
-                return "Destination path required for move operation."
-            dest = Path(os.path.expandvars(dest_str)).resolve()
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(p), str(dest))
-            return f"Moved {p.name} to {dest}."
+                return "Destination path is required for move/rename."
+            dest_p = Path(os.path.expanduser(os.path.expandvars(dest_str))).resolve()
+            dest_p.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(p), str(dest_p))
+            return f"Moved {p.name} to {dest_p}."
 
         elif action == "search":
             search_dir = p if p.is_dir() else Path.home()
-            pattern = f"*{dest_str or p.name}*"
-            matches = [str(f) for f in search_dir.glob(pattern)][:5]
-            return f"Found matches: {', '.join(matches)}" if matches else "No matching files found."
+            query = dest_str or p.name
+            matches = [str(f.name) for f in search_dir.glob(f"*{query}*")][:10]
+            return f"Found matches in {search_dir.name}: {', '.join(matches)}" if matches else f"No matches found for '{query}'."
 
         return f"Unknown file action: {action}"
 
     def _tool_run_command(self, args: Dict[str, Any]) -> str:
-        cmd = args.get("cmd", "")
-        res = subprocess.run(["powershell", "-c", cmd], capture_output=True, text=True, timeout=15)
-        out = res.stdout.strip() or res.stderr.strip() or "Command completed with no output."
-        return out[:500]
+        cmd = args.get("cmd", "").strip()
+        if not cmd:
+            return "Command string is empty."
+        try:
+            res = subprocess.run(["powershell", "-c", cmd], capture_output=True, text=True, timeout=15)
+            out = res.stdout.strip() or res.stderr.strip() or "Command completed with no output."
+            return out[:500]
+        except subprocess.TimeoutExpired:
+            return "Command execution timed out after 15 seconds."
+        except Exception as e:
+            return f"Execution failed: {str(e)}"
 
     def _tool_keyboard_mouse(self, args: Dict[str, Any]) -> str:
         if not pyautogui:
-            return "PyAutoGUI is not available."
-        action = args.get("action", "")
-        val = args.get("text_or_key", "")
+            return "PyAutoGUI automation is not available."
+
+        action = args.get("action", "").lower().strip()
+        val = args.get("text_or_key", "").strip()
+        extra_val = args.get("value", "").strip()
 
         if action == "type":
-            pyautogui.write(val, interval=0.03)
-            return f"Typed text: '{val}'"
+            if not val:
+                return "No text provided to type."
+            pyautogui.write(val, interval=0.02)
+            return f"Typed: '{val}'"
+
         elif action == "press_key":
-            pyautogui.press(val)
+            if not val:
+                return "No key specified to press."
+            pyautogui.press(val.lower())
             return f"Pressed key '{val}'"
+
+        elif action == "hotkey":
+            if not val:
+                return "No hotkey combination specified."
+            # Split 'ctrl+c' or 'ctrl, c'
+            keys = [k.strip().lower() for k in re.split(r"[+,]", val) if k.strip()]
+            pyautogui.hotkey(*keys)
+            return f"Triggered hotkey combination: {' + '.join(keys)}"
+
         elif action == "click":
             pyautogui.click()
             return "Mouse clicked."
+
+        elif action == "scroll":
+            try:
+                clicks = int(extra_val or val or 300)
+                pyautogui.scroll(clicks)
+                return f"Scrolled mouse {'up' if clicks > 0 else 'down'} by {abs(clicks)} units."
+            except ValueError:
+                return "Invalid scroll value."
+
         return f"Unknown input action: {action}"
+
 
 tool_executor = ToolExecutor()
