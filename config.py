@@ -40,3 +40,10 @@ CONVERSATION_TIMEOUT = 12.0  # Seconds to stay in active listening state after r
 # Assistant Persona
 ASSISTANT_NAME = "Jarvis"
 USER_NAME = "Sir"
+
+# Ollama Local LLM Brain Settings (Phase 2)
+USE_LLM_BRAIN = True
+OLLAMA_BASE_URL = "http://localhost:11434"
+OLLAMA_MODEL = "llama3.2:3b"     # "llama3.2:3b" (ultra-fast) or "llama3.1:8b"
+MAX_CONVERSATION_TURNS = 10
+

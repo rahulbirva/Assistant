@@ -11,16 +11,17 @@ from core.logger import logger
 from core.tts import TTSEngine
 from core.stt import STTEngine
 from core.audio import AudioRecorder
+from core.llm import OllamaBrain
 
 class JarvisVoiceCore:
-    """Manages the Phase 1 Voice Core conversational loop."""
+    """Manages the Phase 1 & 2 conversational voice loop with local LLM brain."""
     
     def __init__(self, require_wake_word: bool = config.REQUIRE_WAKE_WORD):
         self.require_wake_word = require_wake_word
         self.wake_words = [w.lower() for w in config.WAKE_WORDS]
         self.active_session_until = 0.0
         
-        logger.log("INFO", "Initializing Jarvis Voice Core...")
+        logger.log("INFO", "Initializing Jarvis Voice & Brain Core...")
         
         # Initialize TTS
         self.tts = TTSEngine(
@@ -36,6 +37,19 @@ class JarvisVoiceCore:
             on_listening_start=lambda: logger.log("LISTENING", "User is speaking..."),
             on_listening_end=lambda: logger.log("THINKING", "Processing speech audio..."),
         )
+
+        # Initialize Ollama Brain (Phase 2)
+        self.brain = None
+        if config.USE_LLM_BRAIN:
+            try:
+                self.brain = OllamaBrain(
+                    model=config.OLLAMA_MODEL,
+                    base_url=config.OLLAMA_BASE_URL,
+                    max_history_turns=config.MAX_CONVERSATION_TURNS,
+                )
+                logger.log("INFO", f"Ollama Brain initialized with model '{config.OLLAMA_MODEL}'.")
+            except Exception as e:
+                logger.log("WARN", f"Could not initialize Ollama brain ({e}). Running in offline keyword mode.")
 
     def startup(self):
         """Calibrates microphone and greets user."""
@@ -125,8 +139,13 @@ class JarvisVoiceCore:
         if "latency" in q or "benchmark" in q:
             return "Voice latency benchmark complete. Response times are well within target."
 
-        if any(word in q for word in ["exit", "quit", "shutdown", "goodbye"]):
+        if any(word in q for word in ["exit", "quit", "shutdown assistant", "goodbye"]):
             return "__EXIT__"
+
+        # Phase 2: Delegate reasoning and actions to Ollama Local LLM Brain
+        if self.brain and config.USE_LLM_BRAIN:
+            reply, _ = self.brain.think_and_respond(query)
+            return reply
 
         # Default fallback response for voice core testing
         return (
