@@ -12,6 +12,7 @@ ACTIVITY_LOG_FILE = LOG_DIR / "jarvis_activity.log"
 
 # Speech-To-Text (faster-whisper) Settings
 STT_MODEL_NAME = "small.en"  # "small.en" (recommended, high accuracy), "base.en", or "tiny.en"
+STT_MODEL_SIZE = STT_MODEL_NAME
 STT_DEVICE = "cuda"          # "cuda" (RTX 5060) or "cpu" fallback
 STT_COMPUTE_TYPE = "float16"  # "float16" on CUDA, "int8" on CPU
 STT_SAMPLE_RATE = 16000      # 16kHz mono audio required by Whisper
