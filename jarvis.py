@@ -87,6 +87,12 @@ class JarvisVoiceCore:
         if not q:
             return f"Yes, {config.USER_NAME}? How may I assist you?"
 
+        if any(w in q for w in ["hello", "hi", "hey"]):
+            return f"Hello, {config.USER_NAME}. I am online and listening."
+
+        if any(w in q for w in ["how are you", "how're you", "how are you doing"]):
+            return f"I am functioning at peak efficiency, {config.USER_NAME}. All systems ready."
+
         if "time" in q:
             now = datetime.now().strftime("%I:%M %p")
             return f"The current time is {now}."
@@ -95,16 +101,25 @@ class JarvisVoiceCore:
             today = datetime.now().strftime("%A, %B %d, %Y")
             return f"Today is {today}."
             
-        if "who are you" in q or "introduce yourself" in q or "identity" in q:
+        if any(w in q for w in ["who are you", "introduce yourself", "identity"]):
             return (
                 f"I am {config.ASSISTANT_NAME}, your personal offline AI assistant running locally "
-                f"on your Windows PC. My voice core is powered by faster-whisper and pyttsx3."
+                f"on your Windows PC with GPU acceleration. My voice core is powered by faster-whisper and pyttsx3."
             )
+
+        if any(w in q for w in ["what can you do", "help", "capabilities"]):
+            return (
+                f"I can tell you the time, date, report system status, benchmark latency, and in Phase 2, "
+                f"reason through local Ollama LLM to automate computer actions."
+            )
+
+        if any(w in q for w in ["thank you", "thanks"]):
+            return f"Always at your service, {config.USER_NAME}."
             
         if "status" in q or "system status" in q:
             return (
-                f"All core systems operational. STT running on {self.stt.device} with float16 precision. "
-                f"Voice synthesis active and ready for Phase 2 LLM integration."
+                f"All core systems operational. STT model {self.stt.model_name} running on {self.stt.device} with float16 precision. "
+                f"Voice synthesis active and ready."
             )
 
         if "latency" in q or "benchmark" in q:

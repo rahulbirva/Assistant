@@ -79,21 +79,28 @@ class STTEngine:
         if audio is None or len(audio) == 0:
             return "", 0.0
 
-        # Ensure float32 normalized between -1.0 and 1.0
+        # Ensure float32
         if audio.dtype != np.float32:
             audio = audio.astype(np.float32)
         if np.max(np.abs(audio)) > 1.0:
             audio = audio / 32768.0
+
+        # Peak normalization so soft speech is clearly recognized
+        max_val = float(np.max(np.abs(audio)))
+        if max_val > 0.005:
+            audio = (audio / max_val) * 0.95
 
         t0 = time.perf_counter()
         try:
             segments, info = self.model.transcribe(
                 audio,
                 language="en",
-                beam_size=1,            # 1 for fastest greedy decoding
-                best_of=1,
+                beam_size=config.STT_BEAM_SIZE,
+                best_of=config.STT_BEAM_SIZE,
                 temperature=0.0,
-                vad_filter=True,        # Built-in Silero VAD filtering
+                condition_on_previous_text=False,
+                initial_prompt=config.STT_INITIAL_PROMPT,
+                vad_filter=True,
                 vad_parameters=dict(min_silence_duration_ms=400),
             )
             text_segments = [s.text.strip() for s in segments]
