@@ -26,8 +26,12 @@ class JarvisLogger:
             fh.setFormatter(fmt)
             self.logger.addHandler(fh)
 
-    def log(self, category: str, message: str, level: str = "INFO"):
-        """Logs to file and console."""
+    def log(self, category: str, message: str = None, level: str = "INFO"):
+        """Logs to file and console. Supports log('message') or log('CATEGORY', 'message')."""
+        if message is None:
+            message = category
+            category = "INFO"
+
         timestamp = datetime.now().strftime("%H:%M:%S")
         
         # Console colors

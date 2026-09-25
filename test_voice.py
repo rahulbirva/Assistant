@@ -87,6 +87,11 @@ def test_microphone_and_roundtrip():
     return True
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Jarvis Voice Core Test Suite")
+    parser.add_argument("--mic", action="store_true", help="Run live microphone recording and round-trip latency test")
+    args = parser.parse_args()
+
     logger.log("INFO", "==================================================")
     logger.log("INFO", "   JARVIS PHASE 1 — VOICE CORE DIAGNOSTIC SUITE   ")
     logger.log("==================================================")
@@ -94,8 +99,12 @@ def main():
     try:
         test_tts()
         test_stt_inference()
-        logger.log("INFO", "All automated core tests PASSED!")
-        logger.log("INFO", "Run `python jarvis.py` to start the live interactive voice loop.")
+        
+        if args.mic:
+            test_microphone_and_roundtrip()
+            
+        logger.log("INFO", "All diagnostic checks completed successfully!")
+        logger.log("INFO", "Run `python jarvis.py` to start the live continuous voice assistant.")
     except Exception as e:
         logger.log("ERROR", f"Diagnostic failed with error: {e}")
         import traceback

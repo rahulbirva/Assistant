@@ -183,6 +183,29 @@ class JarvisVoiceCore:
         finally:
             self.shutdown()
 
+    def run_text_loop(self):
+        """Interactive text test loop for debugging without microphone."""
+        logger.log("INFO", "Starting Jarvis in Text Mode (type 'exit' to quit)...")
+        self.tts.speak(f"Text mode initialized, {config.USER_NAME}.", wait=False)
+        while True:
+            try:
+                user_input = input("\nYou > ").strip()
+                if not user_input:
+                    continue
+                t0 = time.perf_counter()
+                response = self.process_command(user_input)
+                proc_ms = (time.perf_counter() - t0) * 1000
+                if response == "__EXIT__":
+                    self.tts.speak(f"Goodbye, {config.USER_NAME}.", wait=True)
+                    break
+                t_tts = time.perf_counter()
+                self.tts.speak(response, wait=True)
+                tts_ms = (time.perf_counter() - t_tts) * 1000
+                logger.log_latency(0.0, proc_ms, tts_ms, proc_ms + tts_ms)
+            except (KeyboardInterrupt, EOFError):
+                break
+        self.shutdown()
+
     def shutdown(self):
         """Clean shutdown of resources."""
         logger.log("INFO", "Closing audio stream and voice engines...")
@@ -197,10 +220,18 @@ def main():
         action="store_true",
         help="Disable wake word requirement and process all detected speech immediately.",
     )
+    parser.add_argument(
+        "--text",
+        action="store_true",
+        help="Run in interactive text console mode with TTS voice responses.",
+    )
     args = parser.parse_args()
     
     jarvis = JarvisVoiceCore(require_wake_word=not args.always_listen)
-    jarvis.run_voice_loop()
+    if args.text:
+        jarvis.run_text_loop()
+    else:
+        jarvis.run_voice_loop()
 
 if __name__ == "__main__":
     main()
