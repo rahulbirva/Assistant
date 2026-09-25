@@ -250,9 +250,14 @@ class JarvisVoiceCore:
 def main():
     parser = argparse.ArgumentParser(description="Jarvis Voice Core (Phase 1)")
     parser.add_argument(
+        "--wake-word",
+        action="store_true",
+        help="Require saying 'Jarvis' before each command.",
+    )
+    parser.add_argument(
         "--always-listen",
         action="store_true",
-        help="Disable wake word requirement and process all detected speech immediately.",
+        help="Disable wake word requirement and process all speech continuously.",
     )
     parser.add_argument(
         "--text",
@@ -261,7 +266,14 @@ def main():
     )
     args = parser.parse_args()
     
-    jarvis = JarvisVoiceCore(require_wake_word=not args.always_listen)
+    if args.wake_word:
+        require_wake = True
+    elif args.always_listen:
+        require_wake = False
+    else:
+        require_wake = config.REQUIRE_WAKE_WORD
+        
+    jarvis = JarvisVoiceCore(require_wake_word=require_wake)
     if args.text:
         jarvis.run_text_loop()
     else:

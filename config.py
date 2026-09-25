@@ -33,9 +33,9 @@ TTS_VOLUME = 1.0             # 0.0 to 1.0
 TTS_VOICE_INDEX = 0          # 0 = default (usually David / male on Windows), 1 = Zira / female
 
 # Wake Word & Conversation Settings
-WAKE_WORDS = ["jarvis", "hey jarvis", "travis", "service", "jarves", "javis"]
-REQUIRE_WAKE_WORD = True     # If False, continuously listens for commands
-CONVERSATION_TIMEOUT = 12.0  # Seconds to stay in active listening state after responding
+WAKE_WORDS = ["jarvis", "hey jarvis", "travis", "service", "jarves", "javis", "hello", "hey"]
+REQUIRE_WAKE_WORD = False    # Set to False so Jarvis responds immediately to all spoken questions without needing 'Jarvis' every time!
+CONVERSATION_TIMEOUT = 15.0  # Seconds to stay in active listening state after responding
 
 # Assistant Persona
 ASSISTANT_NAME = "Jarvis"
