@@ -146,13 +146,21 @@ class ScreenMonitor:
             return []
 
     def _build_summary(self, results: List[Dict[str, Any]]) -> str:
-        """Constructs a clean summary of visible screen elements for the LLM prompt."""
+        """Constructs an organized summary of visible screen elements for the LLM prompt."""
         if not results:
             return "No readable text detected on screen."
 
-        items = [f"'{r['text']}'" for r in results[:25]]
-        summary = f"Visible on screen ({len(results)} items detected): {', '.join(items)}"
-        return summary
+        import re
+        sorted_items = sorted(results, key=lambda x: (x["center"][1], x["center"][0]))
+        top_items = [r["text"] for r in sorted_items if r["center"][1] < 160][:8]
+        main_items = [r["text"] for r in sorted_items if 160 <= r["center"][1] <= 850][:20]
+
+        parts = []
+        if top_items:
+            parts.append(f"Top Navigation/Controls: {', '.join(top_items)}")
+        if main_items:
+            parts.append(f"Primary Options/Content on screen: {', '.join(main_items)}")
+        return " | ".join(parts) if parts else f"Visible elements: {', '.join([r['text'] for r in results[:20]])}"
 
     def capture_now(self) -> Tuple[Optional[Image.Image], List[Dict[str, Any]]]:
         """Synchronously captures and analyzes the screen immediately (for active vision commands)."""
@@ -171,8 +179,7 @@ class ScreenMonitor:
     def get_screen_context(self) -> str:
         """Returns the latest screen summary for LLM prompt injection."""
         with self._lock:
-            # If cache is older than 5 seconds, attempt a quick capture
-            if time.time() - self.last_capture_time > 5.0 and self.latest_screenshot is None:
+            if time.time() - self.last_capture_time > 4.0 or self.latest_screenshot is None:
                 self.capture_now()
             return self.latest_summary
 
@@ -183,32 +190,78 @@ class ScreenMonitor:
 
     def find_text(self, target_text: str) -> Optional[Dict[str, Any]]:
         """
-        Searches for target_text on screen using exact, substring, or fuzzy matching.
-        Returns the best matching element with center coordinates, or None.
+        Locates target element on screen. Supports:
+        - Exact, substring, and token overlap matching
+        - Ordinal/positional requests ('first video', 'first result', 'second video', 'first song')
+        - Standard UI elements ('search bar', 'search', 'play button')
         """
+        import re
+
         # Ensure fresh OCR data
-        if time.time() - self.last_capture_time > 3.0 or not self.latest_ocr_results:
+        if time.time() - self.last_capture_time > 2.5 or not self.latest_ocr_results:
             self.capture_now()
 
         with self._lock:
             candidates = list(self.latest_ocr_results)
 
+        target = target_text.lower().strip()
+
+        # ── 1. Ordinal/Positional Queries ('first video', 'first result', 'second video') ──
+        if any(w in target for w in ["first video", "first result", "top video", "first song", "first item", "play first"]):
+            content_items = [c for c in candidates if c["center"][1] > 180 and len(c["text"]) > 2]
+            content_items.sort(key=lambda c: (c["center"][1], c["center"][0]))
+            if content_items:
+                return content_items[0]
+            # Standard first video/result position in 1080p/1440p
+            return {"center": (520, 320), "text": "First Video Result", "confidence": 1.0}
+
+        if any(w in target for w in ["second video", "second result", "second song"]):
+            content_items = [c for c in candidates if c["center"][1] > 260 and len(c["text"]) > 2]
+            content_items.sort(key=lambda c: (c["center"][1], c["center"][0]))
+            if len(content_items) > 1:
+                return content_items[1]
+            return {"center": (520, 480), "text": "Second Video Result", "confidence": 1.0}
+
+        # ── 2. Search Bar Shortcut ──
+        if target in ["search", "search bar", "search box", "address bar"]:
+            for item in candidates:
+                if "search" in item["text"].lower():
+                    return item
+            # Standard top-center search bar position
+            return {"center": (960, 120), "text": "Search Bar Area", "confidence": 1.0}
+
         if not candidates:
             return None
 
-        target = target_text.lower().strip()
-
-        # 1. Exact match
+        # ── 3. Exact match ──
         for item in candidates:
             if item["text"].lower() == target:
                 return item
 
-        # 2. Substring match
+        # ── 4. Substring match ──
         for item in candidates:
-            if target in item["text"].lower() or item["text"].lower() in target:
+            c_lower = item["text"].lower()
+            if target in c_lower or c_lower in target:
                 return item
 
-        # 3. Fuzzy match
+        # ── 5. Token / Word Overlap Match ──
+        target_tokens = set(re.findall(r"\w+", target))
+        # Exclude common stop words
+        target_tokens -= {"on", "the", "in", "to", "at", "video", "button", "link", "click"}
+        if target_tokens:
+            best_token_item = None
+            best_token_count = 0
+            for item in candidates:
+                cand_tokens = set(re.findall(r"\w+", item["text"].lower()))
+                overlap = len(target_tokens & cand_tokens)
+                if overlap > best_token_count:
+                    best_token_count = overlap
+                    best_token_item = item
+
+            if best_token_item and best_token_count > 0:
+                return best_token_item
+
+        # ── 6. Fuzzy match ──
         best_match = None
         best_score = 0.0
         for item in candidates:
@@ -217,7 +270,7 @@ class ScreenMonitor:
                 best_score = score
                 best_match = item
 
-        if best_match and best_score >= 0.60:
+        if best_match and best_score >= 0.50:
             return best_match
 
         return None

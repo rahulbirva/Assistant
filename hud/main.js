@@ -21,7 +21,7 @@ function createWindow() {
     y: height - 740,
     frame: false,
     transparent: true,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     resizable: true,
     movable: true,
     skipTaskbar: false,
@@ -35,8 +35,6 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, '..', 'jarvis_hud.html'));
-  win.setAlwaysOnTop(true, 'screen-saver');
-  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
 
   // Development: open devtools
   if (process.argv.includes('--dev')) {
@@ -69,6 +67,7 @@ function createTray() {
 // IPC from renderer
 ipcMain.on('close-hud',    () => { win?.hide(); isVisible = false; });
 ipcMain.on('minimize-hud', () => { win?.minimize(); });
+ipcMain.on('toggle-pin',   (event, shouldPin) => { win?.setAlwaysOnTop(!!shouldPin); });
 ipcMain.on('toggle-hud',   () => {
   if (isVisible) { win?.hide(); isVisible = false; }
   else           { win?.show(); isVisible = true;  }

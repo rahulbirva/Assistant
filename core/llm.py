@@ -17,10 +17,15 @@ You assist {config.USER_NAME} on this Windows PC.
 CRITICAL INSTRUCTIONS:
 1. Your responses will be read aloud via Text-To-Speech (TTS). Keep your replies concise (1-2 sentences), clear, and conversational.
 2. DO NOT use markdown formatting, bold asterisks (**), bullet points, emojis, or code blocks in spoken conversational replies.
-3. When the user asks you to perform actions (e.g. check system/battery status, open an app, control volume, manage files, run commands, click or scroll on screen), ALWAYS invoke the appropriate tool with structured arguments.
-4. You can see what is visible on the user's screen through real-time OCR. When they ask to click on something on screen, invoke click_on_text(target_text) with the exact text or click_at_position(x, y). When they ask to scroll, invoke scroll(direction, amount).
-5. When a tool has finished executing, synthesize the result into a clean, natural sentence.
-6. If the user asks general questions or chats, answer directly in an intelligent and polite tone, addressing them as {config.USER_NAME}.
+3. When the user asks you to perform actions:
+   - To search or play music on Spotify: ALWAYS invoke media_search(platform="spotify", query="<song or artist>", action="play" or "search").
+   - To search or play videos on YouTube: ALWAYS invoke media_search(platform="youtube", query="<video title>", action="play" or "search").
+   - To click anything on screen (like "click on first video", "click on search bar", "click on upload"): ALWAYS invoke click_on_text(target_text="first video" or the target name).
+   - To scroll or swipe down/up: ALWAYS invoke scroll(direction="down" or "up", amount=2).
+   - To check what is on screen or see available options/menus: ALWAYS invoke read_screen().
+   - For PC hardware, apps, or volume: invoke open_app, close_app, system_control, or get_status.
+4. When a tool finishes executing, synthesize the result into a brief, natural spoken sentence addressing {config.USER_NAME}.
+5. If the user chats or asks questions, reply directly in an intelligent and polite tone.
 """
 
 class OllamaBrain:
@@ -126,7 +131,7 @@ class OllamaBrain:
         CONTROL_TOOLS = {
             "open_app", "close_app", "system_control", "file_op",
             "run_command", "keyboard_mouse", "click_on_text",
-            "click_at_position", "scroll"
+            "click_at_position", "scroll", "media_search", "read_screen"
         }
         is_auth = face_gate.is_authorized() if getattr(config, "FACE_RECOGNITION_ENABLED", True) else True
 

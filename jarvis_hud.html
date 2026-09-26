@@ -198,6 +198,29 @@
         <span id="power-label">SYSTEM ONLINE</span>
         <span class="text-xs text-hud-cyan/80">⏻</span>
       </button>
+
+      <!-- Window Action Controls -->
+      <div class="flex items-center gap-1 border-l border-hud-cyan/30 pl-2">
+        <button 
+          id="btn-pin" 
+          onclick="togglePinWindow()" 
+          title="Toggle Pin Always On Top (Default: Off)" 
+          class="px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/50 hover:text-hud-cyan hover:border-hud-cyan transition">
+          📌
+        </button>
+        <button 
+          onclick="windowMinimize()" 
+          title="Minimize Window" 
+          class="px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/70 hover:text-hud-cyan hover:border-hud-cyan transition">
+          &#8722;
+        </button>
+        <button 
+          onclick="windowClose()" 
+          title="Hide to Tray" 
+          class="px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/70 hover:text-hud-crimson hover:border-hud-crimson transition">
+          &#215;
+        </button>
+      </div>
     </div>
   </header>
 
@@ -645,7 +668,40 @@
         document.getElementById('ws-indicator').innerText = 'OFFLINE';
         document.getElementById('ws-indicator').className = 'text-hud-crimson font-bold';
         setAiState('IDLE');
-        stateDesc.innerText = 'Jarvis is offline. Run START_JARVIS.bat to reactivate.';
+      }
+    }
+
+    // ── Window Frame & Pin Controls ──────────────────────────────
+    let isWindowPinned = false;
+
+    function togglePinWindow() {
+      isWindowPinned = !isWindowPinned;
+      const btn = document.getElementById('btn-pin');
+      if (window.electron && window.electron.togglePin) {
+        window.electron.togglePin(isWindowPinned);
+      }
+      if (btn) {
+        if (isWindowPinned) {
+          btn.className = 'px-2 py-1 text-xs rounded border border-hud-cyan bg-hud-cyan/30 text-hud-cyan shadow-[0_0_8px_#00f0ff] transition';
+          btn.title = 'Always on Top: ON (Click to unpin)';
+        } else {
+          btn.className = 'px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/50 hover:text-hud-cyan hover:border-hud-cyan transition';
+          btn.title = 'Always on Top: OFF (Default)';
+        }
+      }
+    }
+
+    function windowMinimize() {
+      if (window.electron && window.electron.minimizeHud) {
+        window.electron.minimizeHud();
+      }
+    }
+
+    function windowClose() {
+      if (window.electron && window.electron.closeHud) {
+        window.electron.closeHud();
+      } else {
+        window.close();
       }
     }
 

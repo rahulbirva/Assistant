@@ -229,15 +229,59 @@ TOOL_DEFINITIONS = [
                 "properties": {
                     "direction": {
                         "type": "string",
-                        "enum": ["up", "down", "left", "right"],
-                        "description": "Direction to scroll. Defaults to 'down'."
+                        "enum": ["up", "down", "left", "right", "swipe_down", "swipe_up", "page_down", "page_up"],
+                        "description": "Direction to scroll or swipe (e.g. 'down', 'up', 'page_down', 'page_up', 'swipe_down')."
                     },
                     "amount": {
                         "type": "integer",
-                        "description": "Number of scroll increments (e.g. 1, 3, 5). Defaults to 3."
+                        "description": "Number of scroll increments. Defaults to 2 for a full page view."
                     }
                 },
                 "required": ["direction"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "media_search",
+            "description": "Search or play songs/artists on Spotify, or search and play videos on YouTube, or search Google.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "platform": {
+                        "type": "string",
+                        "enum": ["spotify", "youtube", "google"],
+                        "description": "Target platform: 'spotify', 'youtube', or 'google'."
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "The song name, artist name, video title, or search query."
+                    },
+                    "action": {
+                        "type": "string",
+                        "enum": ["search", "play"],
+                        "description": "Whether to just 'search' or immediately 'play' the top result."
+                    }
+                },
+                "required": ["platform", "query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_screen",
+            "description": "Inspect and describe all visible buttons, links, menus, and text options currently displayed on the user's screen.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "focus": {
+                        "type": "string",
+                        "description": "Optional focus area to inspect (e.g. 'all', 'options', 'buttons')."
+                    }
+                },
+                "required": []
             }
         }
     }
@@ -696,28 +740,93 @@ class ToolExecutor:
     def _tool_scroll(self, args: Dict[str, Any]) -> str:
         direction = args.get("direction", "down").lower().strip()
         try:
-            amount = int(args.get("amount", 3))
+            amount = int(args.get("amount", 2))
         except (ValueError, TypeError):
-            amount = 3
+            amount = 2
 
         if not pyautogui:
             return "PyAutoGUI is not available."
 
-        # Windows wheel clicks (120 per notch)
-        clicks = amount * 120
-        if direction == "down":
-            pyautogui.scroll(-clicks)
-        elif direction == "up":
-            pyautogui.scroll(clicks)
-        elif direction == "left":
-            pyautogui.hscroll(-clicks)
-        elif direction == "right":
-            pyautogui.hscroll(clicks)
-        else:
-            pyautogui.scroll(-clicks)
+        # High-magnitude scroll (each increment is ~650 units for visible page movement)
+        scroll_units = max(1, amount) * 650
 
-        logger.log("ACTION", f"[SCROLLING] Scrolled {direction} {amount} clicks")
-        return f"Scrolled {direction} by {amount} clicks."
+        if direction in ("down", "page_down", "swipe_down", "swipe"):
+            pyautogui.scroll(-scroll_units)
+            if amount >= 2:
+                pyautogui.press("pagedown")
+            logger.log("ACTION", f"[SCROLLING] Scrolled down by {scroll_units} units")
+            return f"Scrolled down the page."
+        elif direction in ("up", "page_up", "swipe_up"):
+            pyautogui.scroll(scroll_units)
+            if amount >= 2:
+                pyautogui.press("pageup")
+            logger.log("ACTION", f"[SCROLLING] Scrolled up by {scroll_units} units")
+            return f"Scrolled up the page."
+        elif direction == "left":
+            pyautogui.hscroll(-scroll_units)
+            return "Scrolled left."
+        elif direction == "right":
+            pyautogui.hscroll(scroll_units)
+            return "Scrolled right."
+        else:
+            pyautogui.scroll(-scroll_units)
+            return f"Scrolled {direction}."
+
+    def _tool_media_search(self, args: Dict[str, Any]) -> str:
+        import threading
+        import urllib.parse
+
+        platform = args.get("platform", "spotify").lower().strip()
+        query = args.get("query", "").strip()
+        action = args.get("action", "search").lower().strip()
+
+        if not query:
+            return "Please specify a song, artist, or video title to search."
+
+        encoded = urllib.parse.quote(query)
+
+        if "spotify" in platform:
+            logger.log("ACTION", f"Searching Spotify for '{query}' (action={action})")
+            try:
+                subprocess.Popen(["powershell", "-c", f"Start-Process 'spotify:search:{encoded}'"], shell=True)
+                if action == "play":
+                    def _do_play_spotify():
+                        time.sleep(1.8)
+                        if pyautogui:
+                            pyautogui.press("enter")
+                    threading.Thread(target=_do_play_spotify, daemon=True).start()
+                    return f"Playing '{query}' on Spotify."
+                return f"Opened Spotify search for '{query}'."
+            except Exception:
+                webbrowser.open(f"https://open.spotify.com/search/{encoded}")
+                return f"Opened Spotify search for '{query}' in browser."
+
+        elif "youtube" in platform:
+            logger.log("ACTION", f"Searching YouTube for '{query}' (action={action})")
+            webbrowser.open(f"https://www.youtube.com/results?search_query={encoded}")
+            if action == "play":
+                def _do_click_first():
+                    time.sleep(2.5)
+                    from core.screen_monitor import screen_monitor
+                    match = screen_monitor.find_text("first video")
+                    if match and pyautogui:
+                        cx, cy = match["center"]
+                        pyautogui.click(cx, cy)
+                threading.Thread(target=_do_click_first, daemon=True).start()
+                return f"Searching YouTube for '{query}' and playing the top result."
+            return f"Opened YouTube search for '{query}'."
+
+        else:
+            webbrowser.open(f"https://www.google.com/search?q={encoded}")
+            return f"Searching the web for '{query}'."
+
+    def _tool_read_screen(self, args: Dict[str, Any]) -> str:
+        from core.screen_monitor import screen_monitor
+        img, results = screen_monitor.capture_now()
+        if not results:
+            return "I could not detect any readable text on the screen right now."
+        return screen_monitor.latest_summary
 
 
 tool_executor = ToolExecutor()
+
