@@ -207,20 +207,20 @@ class ScreenMonitor:
         target = target_text.lower().strip()
 
         # ── 1. Ordinal/Positional Queries ('first video', 'first result', 'second video') ──
-        if any(w in target for w in ["first video", "first result", "top video", "first song", "first item", "play first"]):
-            content_items = [c for c in candidates if c["center"][1] > 180 and len(c["text"]) > 2]
+        if any(w in target for w in ["first video", "first result", "top video", "first song", "first item", "play first", "delay first", "first"]):
+            content_items = [c for c in candidates if c["center"][0] > 240 and c["center"][1] > 190 and len(c["text"]) > 2]
             content_items.sort(key=lambda c: (c["center"][1], c["center"][0]))
             if content_items:
                 return content_items[0]
             # Standard first video/result position in 1080p/1440p
             return {"center": (520, 320), "text": "First Video Result", "confidence": 1.0}
 
-        if any(w in target for w in ["second video", "second result", "second song"]):
-            content_items = [c for c in candidates if c["center"][1] > 260 and len(c["text"]) > 2]
+        if any(w in target for w in ["second video", "second result", "second song", "second"]):
+            content_items = [c for c in candidates if c["center"][0] > 240 and c["center"][1] > 260 and len(c["text"]) > 2]
             content_items.sort(key=lambda c: (c["center"][1], c["center"][0]))
             if len(content_items) > 1:
                 return content_items[1]
-            return {"center": (520, 480), "text": "Second Video Result", "confidence": 1.0}
+            return {"center": (520, 520), "text": "Second Video Result", "confidence": 1.0}
 
         # ── 2. Search Bar Shortcut ──
         if target in ["search", "search bar", "search box", "address bar"]:

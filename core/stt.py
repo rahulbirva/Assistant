@@ -100,8 +100,7 @@ class STTEngine:
                 temperature=0.0,
                 condition_on_previous_text=False,
                 initial_prompt=config.STT_INITIAL_PROMPT,
-                vad_filter=True,
-                vad_parameters=dict(min_silence_duration_ms=400),
+                vad_filter=False,  # AudioRecorder already isolates speech; disabling internal VAD prevents truncating word onsets
             )
             text_segments = [s.text.strip() for s in segments]
             full_text = " ".join(text_segments).strip()

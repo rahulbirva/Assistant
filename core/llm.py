@@ -14,18 +14,23 @@ from core.tools import TOOL_DEFINITIONS, tool_executor
 SYSTEM_PROMPT = f"""You are {config.ASSISTANT_NAME}, an autonomous, witty, and highly capable local AI assistant inspired by Tony Stark's JARVIS.
 You assist {config.USER_NAME} on this Windows PC.
 
-CRITICAL INSTRUCTIONS:
-1. Your responses will be read aloud via Text-To-Speech (TTS). Keep your replies concise (1-2 sentences), clear, and conversational.
-2. DO NOT use markdown formatting, bold asterisks (**), bullet points, emojis, or code blocks in spoken conversational replies.
-3. When the user asks you to perform actions:
-   - To search or play music on Spotify: ALWAYS invoke media_search(platform="spotify", query="<song or artist>", action="play" or "search").
-   - To search or play videos on YouTube: ALWAYS invoke media_search(platform="youtube", query="<video title>", action="play" or "search").
-   - To click anything on screen (like "click on first video", "click on search bar", "click on upload"): ALWAYS invoke click_on_text(target_text="first video" or the target name).
-   - To scroll or swipe down/up: ALWAYS invoke scroll(direction="down" or "up", amount=2).
-   - To check what is on screen or see available options/menus: ALWAYS invoke read_screen().
-   - For PC hardware, apps, or volume: invoke open_app, close_app, system_control, or get_status.
+CRITICAL RULES:
+1. CONVERSATION & GENERAL KNOWLEDGE:
+   - When {config.USER_NAME} asks a question, definition, fact, how-to, or chats with you (e.g. "what is mobile?", "how are you?", "who are you?", "tell me about X"):
+     NEVER invoke any tool! NEVER search Google! NEVER open the browser!
+     Answer the question DIRECTLY and intelligently using your own knowledge in 1-2 spoken sentences.
+2. SPOKEN FORMAT:
+   - Your responses are read aloud via Text-To-Speech. Keep them concise (1-2 sentences).
+   - NEVER use markdown formatting, bold asterisks (**), bullet points, emojis, or code blocks in spoken conversational replies.
+3. EXPLICIT COMPUTER ACTIONS (Only invoke tools when {config.USER_NAME} gives an action command):
+   - To play songs on Spotify: invoke media_control(platform="spotify", query="<song>", action="play").
+   - To play videos on YouTube (e.g. "play X on youtube", "play minecraft"): invoke media_control(platform="youtube", query="<title>", action="play").
+   - To play a specific numbered video (e.g. "play that second video"): invoke media_control(platform="youtube", query="<title>", action="play", index=2).
+   - To click anything on screen (e.g. "click on first video", "click search", "click upload"): invoke click_on_text(target_text="first video" or label).
+   - To scroll or swipe down/up: invoke scroll(direction="down" or "up", amount=2).
+   - To inspect active screen: invoke read_screen().
+   - To control apps or PC: invoke open_app, close_app, or system_control.
 4. When a tool finishes executing, synthesize the result into a brief, natural spoken sentence addressing {config.USER_NAME}.
-5. If the user chats or asks questions, reply directly in an intelligent and polite tone.
 """
 
 class OllamaBrain:
@@ -131,15 +136,38 @@ class OllamaBrain:
         CONTROL_TOOLS = {
             "open_app", "close_app", "system_control", "file_op",
             "run_command", "keyboard_mouse", "click_on_text",
-            "click_at_position", "scroll", "media_search", "read_screen"
+            "click_at_position", "scroll", "media_search", "media_control",
+            "web_search", "read_screen"
         }
         is_auth = face_gate.is_authorized() if getattr(config, "FACE_RECOGNITION_ENABLED", True) else True
 
         if is_auth:
-            active_tools = TOOL_DEFINITIONS
+            active_tools = list(TOOL_DEFINITIONS)
         else:
             # Unrecognized: filter out all system control tools (chat-only mode)
             active_tools = [t for t in TOOL_DEFINITIONS if t["function"]["name"] not in CONTROL_TOOLS]
+
+        # Smart tool filtering: only expose web_search when user explicitly requested Google / web search
+        web_search_triggers = ["google", "search google", "search the web", "search web", "look up on google", "web search"]
+        if not any(trig in user_query.lower() for trig in web_search_triggers):
+            active_tools = [t for t in active_tools if t["function"]["name"] != "web_search"]
+
+        # Conversational questions (facts, definitions, how-tos, greetings):
+        # Disable tool schema completely so Ollama answers directly without attempting tool executions
+        question_starters = [
+            "what is", "what are", "what does", "who is", "who are", "why is", "why do", "why does",
+            "how do", "how does", "how are you", "tell me", "explain", "define", "do you", "are you",
+            "what's", "who's", "can you explain"
+        ]
+        q_lower = user_query.lower().strip()
+        is_general_question = any(q_lower.startswith(qs) or f" {qs} " in q_lower for qs in question_starters)
+        action_keywords = [
+            "time", "battery", "cpu", "ram", "memory", "wifi", "network", "brightness",
+            "status", "youtube", "spotify", "play", "click", "open", "close", "scroll",
+            "screen", "app", "file", "folder", "shutdown", "restart", "volume", "mute"
+        ]
+        if is_general_question and not any(ak in q_lower for ak in action_keywords):
+            active_tools = []
 
         messages = list(self.history)
         if not is_auth:

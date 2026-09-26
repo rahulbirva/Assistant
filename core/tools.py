@@ -38,7 +38,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "get_status",
-            "description": "Get real-time system status including current time, date, battery level, CPU/memory usage, network/Wi-Fi connection, screen brightness, and running applications.",
+            "description": "Get real-time PC hardware and telemetry status: time, battery, CPU/RAM performance, Wi-Fi, and brightness. DO NOT use for definitions or general questions.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -244,27 +244,48 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
-            "name": "media_search",
-            "description": "Search or play songs/artists on Spotify, or search and play videos on YouTube, or search Google.",
+            "name": "media_control",
+            "description": "Play or search songs on Spotify, or play/search videos on YouTube. Use this ONLY for media playback commands.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "platform": {
                         "type": "string",
-                        "enum": ["spotify", "youtube", "google"],
-                        "description": "Target platform: 'spotify', 'youtube', or 'google'."
+                        "enum": ["spotify", "youtube"],
+                        "description": "Target media platform: 'spotify' or 'youtube'."
                     },
                     "query": {
                         "type": "string",
-                        "description": "The song name, artist name, video title, or search query."
+                        "description": "The song title, artist, or YouTube video to play or search."
                     },
                     "action": {
                         "type": "string",
-                        "enum": ["search", "play"],
-                        "description": "Whether to just 'search' or immediately 'play' the top result."
+                        "enum": ["play", "search"],
+                        "description": "'play' to immediately start playing the video or song, or 'search' to open search results."
+                    },
+                    "index": {
+                        "type": "integer",
+                        "description": "Optional ordinal video number to play (e.g. 1 for first video, 2 for second video)."
                     }
                 },
                 "required": ["platform", "query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Perform a Google search in browser ONLY when user explicitly asks to 'google <query>' or 'search Google for <query>'. NEVER use this for general questions or chat.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The search query."
+                    }
+                },
+                "required": ["query"]
             }
         }
     },
@@ -772,16 +793,21 @@ class ToolExecutor:
             pyautogui.scroll(-scroll_units)
             return f"Scrolled {direction}."
 
-    def _tool_media_search(self, args: Dict[str, Any]) -> str:
+    def _tool_media_control(self, args: Dict[str, Any]) -> str:
         import threading
         import urllib.parse
+        import urllib.request
 
-        platform = args.get("platform", "spotify").lower().strip()
+        platform = args.get("platform", "youtube").lower().strip()
         query = args.get("query", "").strip()
-        action = args.get("action", "search").lower().strip()
+        action = args.get("action", "play").lower().strip()
+        try:
+            target_idx = int(args.get("index", 1))
+        except (ValueError, TypeError):
+            target_idx = 1
 
         if not query:
-            return "Please specify a song, artist, or video title to search."
+            return "Please specify a song, artist, or video title."
 
         encoded = urllib.parse.quote(query)
 
@@ -802,23 +828,64 @@ class ToolExecutor:
                 return f"Opened Spotify search for '{query}' in browser."
 
         elif "youtube" in platform:
-            logger.log("ACTION", f"Searching YouTube for '{query}' (action={action})")
-            webbrowser.open(f"https://www.youtube.com/results?search_query={encoded}")
+            logger.log("ACTION", f"Processing YouTube '{query}' (action={action}, index={target_idx})")
             if action == "play":
-                def _do_click_first():
-                    time.sleep(2.5)
-                    from core.screen_monitor import screen_monitor
-                    match = screen_monitor.find_text("first video")
-                    if match and pyautogui:
-                        cx, cy = match["center"]
-                        pyautogui.click(cx, cy)
-                threading.Thread(target=_do_click_first, daemon=True).start()
-                return f"Searching YouTube for '{query}' and playing the top result."
-            return f"Opened YouTube search for '{query}'."
+                # Instant direct playback: extract exact watch URL and launch
+                watch_url = None
+                try:
+                    req = urllib.request.Request(
+                        f"https://www.youtube.com/results?search_query={encoded}",
+                        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+                    )
+                    with urllib.request.urlopen(req, timeout=3.5) as resp:
+                        html = resp.read().decode("utf-8", errors="ignore")
+                        video_ids = []
+                        for vid in re.findall(r"/watch\?v=([a-zA-Z0-9_-]{11})", html):
+                            if vid not in video_ids:
+                                video_ids.append(vid)
 
-        else:
-            webbrowser.open(f"https://www.google.com/search?q={encoded}")
-            return f"Searching the web for '{query}'."
+                        if video_ids:
+                            chosen_idx = max(0, min(len(video_ids) - 1, target_idx - 1))
+                            chosen_id = video_ids[chosen_idx]
+                            watch_url = f"https://www.youtube.com/watch?v={chosen_id}"
+                except Exception as ex:
+                    logger.log("WARN", f"Direct YouTube lookup error: {ex}")
+
+                if watch_url:
+                    webbrowser.open(watch_url)
+                    ordinal = "first" if target_idx == 1 else f"number {target_idx}"
+                    return f"Playing {ordinal} YouTube video for '{query}'."
+                else:
+                    # Fallback to search results + auto click
+                    webbrowser.open(f"https://www.youtube.com/results?search_query={encoded}")
+                    def _do_click_first():
+                        time.sleep(2.5)
+                        from core.screen_monitor import screen_monitor
+                        match = screen_monitor.find_text("first video")
+                        if match and pyautogui:
+                            cx, cy = match["center"]
+                            pyautogui.click(cx, cy)
+                    threading.Thread(target=_do_click_first, daemon=True).start()
+                    return f"Searching YouTube for '{query}' and playing the top result."
+
+            # action == "search"
+            webbrowser.open(f"https://www.youtube.com/results?search_query={encoded}")
+            return f"Opened YouTube search results for '{query}'."
+
+        return f"Unsupported platform: {platform}"
+
+    def _tool_media_search(self, args: Dict[str, Any]) -> str:
+        """Alias for backward compatibility with Ollama tool calling."""
+        return self._tool_media_control(args)
+
+    def _tool_web_search(self, args: Dict[str, Any]) -> str:
+        import urllib.parse
+        query = args.get("query", "").strip()
+        if not query:
+            return "No search query provided."
+        encoded = urllib.parse.quote(query)
+        webbrowser.open(f"https://www.google.com/search?q={encoded}")
+        return f"Opened Google search for '{query}'."
 
     def _tool_read_screen(self, args: Dict[str, Any]) -> str:
         from core.screen_monitor import screen_monitor

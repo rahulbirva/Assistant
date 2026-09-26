@@ -79,7 +79,10 @@ class JarvisDaemon:
         # 1. Voice Core
         self.tts = TTSEngine()
         self.stt = STTEngine()
-        self.recorder = AudioRecorder()
+        self.recorder = AudioRecorder(
+            on_listening_start=self._on_speech_start,
+            on_listening_end=self._on_speech_end,
+        )
 
         # 2. Local LLM Brain
         self.brain = OllamaBrain(model=config.OLLAMA_MODEL)
@@ -146,6 +149,14 @@ class JarvisDaemon:
     def _on_resume(self):
         logger.log("INFO", "Voice listening resumed via system tray.")
         self.service_state.is_paused = False
+
+    def _on_speech_start(self):
+        if not self.service_state.is_paused:
+            self.service_state.update("LISTENING", "Hearing voice...")
+
+    def _on_speech_end(self):
+        if not self.service_state.is_paused:
+            self.service_state.update("THINKING", "Processing speech...")
 
     def start(self):
         """Starts all background worker threads and the main voice loop."""

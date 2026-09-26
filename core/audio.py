@@ -52,8 +52,8 @@ class AudioRecorder:
         ambient_data = sd.rec(samples, samplerate=self.sample_rate, channels=1, dtype="float32")
         sd.wait()
         rms = float(np.sqrt(np.mean(ambient_data**2)))
-        # Set threshold dynamically slightly above ambient noise floor
-        self.energy_threshold = max(0.008, rms * 2.2)
+        # Set threshold dynamically slightly above ambient noise floor with safe ceiling
+        self.energy_threshold = max(0.006, min(0.012, rms * 1.8))
         logger.log("INFO", f"Noise floor RMS: {rms:.4f}. Dynamic threshold set to: {self.energy_threshold:.4f}")
 
     def listen_utterance(self, timeout: Optional[float] = None) -> Optional[np.ndarray]:
@@ -61,8 +61,8 @@ class AudioRecorder:
         Blocks until speech is detected and completed by silence.
         Returns the captured speech audio as a 1D float32 numpy array, or None if timed out.
         """
-        # Pre-speech ring buffer (stores ~350ms of audio before trigger)
-        pre_speech_blocks = int(0.35 / (config.AUDIO_BLOCK_DURATION_MS / 1000.0))
+        # Pre-speech ring buffer (stores ~600ms of audio before trigger to capture soft initial consonants)
+        pre_speech_blocks = int(0.60 / (config.AUDIO_BLOCK_DURATION_MS / 1000.0))
         pre_buffer = deque(maxlen=pre_speech_blocks)
         
         speech_buffer = []

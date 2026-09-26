@@ -22,16 +22,16 @@ STT_MODEL_SIZE = STT_MODEL_NAME
 STT_DEVICE = "cuda"          # "cuda" (RTX 5060) or "cpu" fallback
 STT_COMPUTE_TYPE = "float16"  # "float16" on CUDA, "int8" on CPU
 STT_SAMPLE_RATE = 16000      # 16kHz mono audio required by Whisper
-STT_BEAM_SIZE = 3            # Beam search size (3 gives much higher accuracy than 1)
-STT_INITIAL_PROMPT = "Jarvis, what time is it? Jarvis, how are you? System status, Sir."
+STT_BEAM_SIZE = 4            # Beam search size (4 gives maximum transcription accuracy)
+STT_INITIAL_PROMPT = "Jarvis, play, click, search, YouTube, Spotify, video, first, second, open, close, what is, how are you, Sir."
 
 # Audio Capture & Voice Activity Detection (VAD) Settings
 AUDIO_CHANNELS = 1
 AUDIO_SAMPLE_RATE = 16000
 AUDIO_BLOCK_DURATION_MS = 30   # Frame size in milliseconds
-AUDIO_SILENCE_DURATION = 1.0   # Seconds of silence to trigger end-of-speech (prevents cutting off)
-AUDIO_MIN_SPEECH_DURATION = 0.35 # Minimum duration in seconds to consider valid speech
-AUDIO_ENERGY_THRESHOLD = 0.012 # RMS threshold for detecting voice activity
+AUDIO_SILENCE_DURATION = 1.1   # Seconds of silence to trigger end-of-speech (prevents cutting off mid-sentence)
+AUDIO_MIN_SPEECH_DURATION = 0.4 # Minimum duration in seconds to consider valid speech
+AUDIO_ENERGY_THRESHOLD = 0.008 # Sensitivity threshold for detecting voice activity
 AUDIO_CALIBRATE_ON_START = True # Dynamically adapt to ambient room noise
 
 # Text-To-Speech (pyttsx3) Settings
