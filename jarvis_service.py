@@ -32,7 +32,10 @@ from core.tts import TTSEngine
 from core.audio import AudioRecorder
 from core.llm import OllamaBrain
 from core.tools import tool_executor
-from core.face_gate import face_gate
+if not getattr(config, "FACE_GATE_BYPASS", False):
+    from core.face_gate import face_gate
+else:
+    face_gate = None
 from core.screen_monitor import screen_monitor
 from jarvis_tray import tray_icon
 import hud_server
@@ -125,12 +128,14 @@ class JarvisDaemon:
         except Exception as e:
             logger.log("WARN", f"Screen monitor start notice: {e}")
 
-        # Start Biometric Face Gate Scanner
-        if getattr(config, "FACE_RECOGNITION_ENABLED", True):
+        # Start Biometric Face Gate Scanner (skip if bypass is on)
+        if getattr(config, "FACE_RECOGNITION_ENABLED", True) and not getattr(config, "FACE_GATE_BYPASS", False):
             try:
                 face_gate.start_background_scanner()
             except Exception as e:
                 logger.log("WARN", f"Face gate scanner start notice: {e}")
+        elif getattr(config, "FACE_GATE_BYPASS", False):
+            logger.log("INFO", "Face gate BYPASSED — webcam scanner disabled.")
 
         # Start System Tray Icon
         if self.enable_tray:
@@ -141,7 +146,7 @@ class JarvisDaemon:
 
         # Spoken greeting
         self.service_state.update("SPEAKING", "Jarvis online")
-        self.tts.speak(f"{config.ASSISTANT_NAME} is online and at your service, {config.USER_NAME}.", wait=False)
+        self.tts.speak(f"{config.ASSISTANT_NAME} is online and at your service, {config.USER_NAME}.", wait=True)
         self.service_state.update("IDLE", "Standing by")
 
         # Start Main Voice Daemon Loop

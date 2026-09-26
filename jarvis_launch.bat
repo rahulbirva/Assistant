@@ -8,7 +8,7 @@ setlocal
 cd /d "%~dp0"
 
 :: ── 1. Start the Python backend silently (no window) ─────────
-start "" /B pythonw.exe "%~dp0jarvis_service.py"
+start "" /B "%~dp0.venv\Scripts\pythonw.exe" "%~dp0jarvis_service.py"
 
 :: Brief pause to let backend bind WebSocket port 7789
 timeout /t 4 /nobreak >nul

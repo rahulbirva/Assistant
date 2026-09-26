@@ -211,7 +211,7 @@ class JarvisVoiceCore:
 
                 # Measure TTS speech latency
                 t_tts_start = time.perf_counter()
-                self.tts.speak(response, wait=False)
+                self.tts.speak(response, wait=True)
                 tts_ms = (time.perf_counter() - t_tts_start) * 1000
 
                 # Total round trip latency (speech finished -> model responded)
@@ -226,7 +226,7 @@ class JarvisVoiceCore:
     def run_text_loop(self):
         """Interactive text test loop for debugging without microphone."""
         logger.log("INFO", "Starting Jarvis in Text Mode (type 'exit' to quit)...")
-        self.tts.speak(f"Text mode initialized, {config.USER_NAME}.", wait=False)
+        self.tts.speak(f"Text mode initialized, {config.USER_NAME}.", wait=True)
         while True:
             try:
                 user_input = input("\nYou > ").strip()

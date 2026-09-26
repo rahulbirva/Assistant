@@ -2,6 +2,12 @@
 Configuration settings for JARVIS Voice Core & System
 """
 import os
+
+# Suppress OpenCV C++ DirectShow/VideoIO log warnings
+os.environ["OPENCV_LOG_LEVEL"] = "OFF"
+os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
+os.environ["OPENCV_VIDEOIO_DEBUG"] = "0"
+
 from pathlib import Path
 
 # Base Paths
