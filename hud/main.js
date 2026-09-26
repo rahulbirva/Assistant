@@ -15,27 +15,26 @@ function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
   win = new BrowserWindow({
-    width: 360,
-    height: 490,
-    x: width - 378,
-    y: height - 508,
+    width: 680,
+    height: 720,
+    x: width - 700,
+    y: height - 740,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
-    resizable: false,
+    resizable: true,
     movable: true,
-    skipTaskbar: true,
-    hasShadow: false,
-    roundedCorners: false,
+    skipTaskbar: false,
+    hasShadow: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
+      contextIsolation: false,
+      nodeIntegration: true,
       backgroundThrottling: false,
     },
   });
 
-  win.loadFile(path.join(__dirname, 'index.html'));
+  win.loadFile(path.join(__dirname, '..', 'jarvis_hud.html'));
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
 

@@ -89,6 +89,44 @@ class JarvisDaemon:
         tray_icon.on_resume = self._on_resume
         tray_icon.on_quit = self.stop
 
+        # Wire HUD typed command callback
+        hud_server.on_user_command = self._handle_hud_command
+        # Wire HUD power action callback
+        hud_server.on_power_action = self._handle_power_action
+
+    def _handle_power_action(self, action: str):
+        """Handles power control directives from HUD (shutdown, pause, resume)."""
+        logger.log("ACTION", f"Power action requested: '{action}'")
+        if action in ("shutdown", "poweroff", "exit", "quit"):
+            self.service_state.update("SPEAKING", "Shutting down systems...")
+            try:
+                self.tts.speak(f"Shutting down all systems. Goodbye, {config.USER_NAME}.", wait=True)
+            except Exception:
+                pass
+            self.stop()
+        elif action == "pause":
+            self._on_pause()
+            self.service_state.update("PAUSED", "Listening paused by user")
+        elif action in ("resume", "unpause"):
+            self._on_resume()
+            self.service_state.update("IDLE", "Listening resumed")
+
+    def _handle_hud_command(self, query: str):
+        """Processes typed text directives submitted via the HUD interface."""
+        logger.log("USER", f"HUD Directive: '{query}'")
+        hud_server.add_conversation("user", query)
+        self.service_state.update("THINKING", f"Reasoning: '{query[:25]}'...")
+        try:
+            spoken_response, llm_ms = self.brain.think_and_respond(query)
+            logger.log("SUCCESS", f"Response generated ({llm_ms:.1f}ms): {spoken_response}")
+            hud_server.add_conversation("jarvis", spoken_response)
+            self.service_state.update("SPEAKING", spoken_response[:40])
+            self.tts.speak(spoken_response, wait=True)
+            self.service_state.update("IDLE", "Standing by")
+        except Exception as e:
+            logger.log("ERROR", f"Error in HUD directive processing: {e}")
+            self.service_state.update("IDLE", f"Error: {e}")
+
     def _hide_console(self):
         """Hides the Windows command prompt window."""
         try:

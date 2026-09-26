@@ -72,6 +72,10 @@ def _gpu_pct() -> int:
         return 0
 
 
+on_user_command = None
+on_power_action = None
+
+
 # ── Async internals ────────────────────────────────────────────
 async def _broadcast(payload: dict) -> None:
     """Send JSON payload to all connected HUD clients."""
@@ -95,9 +99,20 @@ async def _handler(websocket) -> None:
     try:
         # Send full state snapshot on connect
         await websocket.send(json.dumps({"type": "state", "data": _state}, ensure_ascii=False))
-        # Keep open; we only push from server side
-        async for _ in websocket:
-            pass
+        # Listen for client directives (e.g. typed user commands, power actions)
+        async for msg in websocket:
+            try:
+                payload = json.loads(msg)
+                if payload.get("type") == "user_command":
+                    user_text = payload.get("text", "").strip()
+                    if user_text and on_user_command:
+                        threading.Thread(target=on_user_command, args=(user_text,), daemon=True).start()
+                elif payload.get("type") == "system_power":
+                    action = payload.get("action", "").lower().strip()
+                    if action and on_power_action:
+                        threading.Thread(target=on_power_action, args=(action,), daemon=True).start()
+            except Exception:
+                pass
     except Exception:
         pass
     finally:
