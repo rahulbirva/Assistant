@@ -35,6 +35,7 @@ from core.tools import tool_executor
 from core.face_gate import face_gate
 from core.screen_monitor import screen_monitor
 from jarvis_tray import tray_icon
+import hud_server
 
 
 class ServiceState:
@@ -53,6 +54,7 @@ class ServiceState:
             if message:
                 self.last_action = message
             tray_icon.set_state(self.state, self.last_action)
+            hud_server.update_status(self.state, self.last_action)
             logger.log("ACTION", f"Service state: [{self.state}] {self.last_action}")
 
 
@@ -109,16 +111,24 @@ class JarvisDaemon:
         self.running = True
         logger.log("SUCCESS", "JARVIS Background Daemon is active and operational.")
 
+        # Start HUD WebSocket bridge
+        try:
+            hud_server.start()
+            hud_server.set_model(config.OLLAMA_MODEL)
+        except Exception as e:
+            logger.log("WARN", f"HUD server start notice: {e}")
+
         # Start Screen Monitor
         try:
             screen_monitor.start()
+            hud_server.set_ocr_active(True)
         except Exception as e:
             logger.log("WARN", f"Screen monitor start notice: {e}")
 
         # Start Biometric Face Gate Scanner
         if getattr(config, "FACE_RECOGNITION_ENABLED", True):
             try:
-                face_gate.start_background_scanner(interval=4.0)
+                face_gate.start_background_scanner()
             except Exception as e:
                 logger.log("WARN", f"Face gate scanner start notice: {e}")
 
@@ -148,7 +158,7 @@ class JarvisDaemon:
 
             try:
                 # 1. Listen for utterance via VAD
-                audio_data = self.recorder.record_utterance()
+                audio_data = self.recorder.listen_utterance()
                 if audio_data is None or len(audio_data) == 0:
                     continue
 
@@ -165,6 +175,7 @@ class JarvisDaemon:
                     continue
 
                 logger.log("USER", f"Heard: '{clean_text}' ({stt_ms:.1f}ms)")
+                hud_server.add_conversation("user", clean_text)
                 self.service_state.last_command = clean_text
 
                 # Check wake word requirement if enabled
@@ -175,7 +186,10 @@ class JarvisDaemon:
                         continue
 
                 # 3. Biometric Security Gate Check
-                is_auth = face_gate.is_authorized() if getattr(config, "FACE_RECOGNITION_ENABLED", True) else True
+                bypass = getattr(config, "FACE_GATE_BYPASS", False)
+                is_auth = True if bypass else (
+                    face_gate.is_authorized() if getattr(config, "FACE_RECOGNITION_ENABLED", True) else True
+                )
                 if not is_auth:
                     self.service_state.update("LOCKED", "Biometric authorization required")
                 else:
@@ -189,6 +203,7 @@ class JarvisDaemon:
                 # 5. LLM Reasoning & Tool Execution
                 spoken_response, llm_ms = self.brain.think_and_respond(clean_text)
                 logger.log("SUCCESS", f"Response generated ({llm_ms:.1f}ms): {spoken_response}")
+                hud_server.add_conversation("jarvis", spoken_response)
 
                 # 6. State: SPEAKING -> Read aloud
                 self.service_state.update("SPEAKING", spoken_response[:40])

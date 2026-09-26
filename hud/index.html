@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com; script-src 'self';">
+  <title>JARVIS HUD</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ── Titlebar / drag region ─────────────────────────── -->
+  <header id="titlebar">
+    <div id="state-indicator"></div>
+    <span id="state-label">JARVIS</span>
+    <span id="state-mode">/ IDLE</span>
+    <div id="titlebar-controls">
+      <button class="ctrl-btn" id="btn-minimize" title="Minimize">&#8722;</button>
+      <button class="ctrl-btn" id="btn-close"    title="Hide">&#215;</button>
+    </div>
+  </header>
+
+  <!-- ── Status strip ───────────────────────────────────── -->
+  <div id="status-strip">
+    <div class="strip-cell" id="cell-ocr">
+      <span class="strip-dot" id="dot-ocr"></span>
+      <span class="strip-key">OCR</span>
+      <span class="strip-val" id="val-ocr">OFF</span>
+    </div>
+    <div class="strip-divider"></div>
+    <div class="strip-cell" id="cell-gate">
+      <span class="strip-dot" id="dot-gate"></span>
+      <span class="strip-key">GATE</span>
+      <span class="strip-val" id="val-gate">OPEN</span>
+    </div>
+    <div class="strip-divider"></div>
+    <div class="strip-cell" id="cell-ws">
+      <span class="strip-dot" id="dot-ws"></span>
+      <span class="strip-key">LINK</span>
+      <span class="strip-val" id="val-ws">--</span>
+    </div>
+    <div class="strip-divider"></div>
+    <div class="strip-cell" id="cell-model">
+      <span class="strip-key">MDL</span>
+      <span class="strip-val" id="val-model">--</span>
+    </div>
+  </div>
+
+  <!-- ── Mic level + current heard text ────────────────── -->
+  <div id="mic-row">
+    <span class="row-key">MIC</span>
+    <div id="mic-bars">
+      <span class="mbar" id="mbar-0"></span>
+      <span class="mbar" id="mbar-1"></span>
+      <span class="mbar" id="mbar-2"></span>
+      <span class="mbar" id="mbar-3"></span>
+      <span class="mbar" id="mbar-4"></span>
+      <span class="mbar" id="mbar-5"></span>
+      <span class="mbar" id="mbar-6"></span>
+      <span class="mbar" id="mbar-7"></span>
+      <span class="mbar" id="mbar-8"></span>
+      <span class="mbar" id="mbar-9"></span>
+      <span class="mbar" id="mbar-10"></span>
+      <span class="mbar" id="mbar-11"></span>
+      <span class="mbar" id="mbar-12"></span>
+      <span class="mbar" id="mbar-13"></span>
+    </div>
+    <span id="heard-text"></span>
+  </div>
+
+  <!-- ── Conversation feed ──────────────────────────────── -->
+  <main id="conversation">
+    <div id="empty-state">NO CONVERSATION YET</div>
+  </main>
+
+  <!-- ── System stats footer ───────────────────────────── -->
+  <footer id="stats-bar">
+    <div class="stat-cell">
+      <span class="stat-key">CPU</span>
+      <span class="stat-val" id="stat-cpu">--%</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-cell">
+      <span class="stat-key">RAM</span>
+      <span class="stat-val" id="stat-ram">--%</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-cell">
+      <span class="stat-key">GPU</span>
+      <span class="stat-val" id="stat-gpu">--%</span>
+    </div>
+    <div class="stat-divider"></div>
+    <div class="stat-cell">
+      <span class="stat-val" id="stat-time">--:--:--</span>
+    </div>
+  </footer>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,319 @@
+/*
+ * JARVIS HUD — Stylesheet (Phase 6)
+ * Design language: flat, sharp, information-dense, dark charcoal + steel-blue.
+ * Zero gradients. Zero drop shadows. Zero border-radius > 2px. Zero hover animations.
+ * Font: IBM Plex Mono (monospace, technical).
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap');
+
+/* ── Design tokens ───────────────────────────────────────────── */
+:root {
+  --bg:           #0c0e12;
+  --surface:      #111520;
+  --surface-2:    #191e2b;
+
+  --border:       #222840;
+  --border-hi:    #2e3650;
+
+  --text:         #7a859a;
+  --text-mid:     #a0aabb;
+  --text-hi:      #c8d0df;
+  --text-dim:     #3c4558;
+
+  --accent:       #3d6fa8;        /* steel blue — not neon, not pastel */
+
+  /* State palette: muted, distinct */
+  --idle:         #3c4558;
+  --listening:    #2060a0;
+  --thinking:     #8a6c1a;
+  --speaking:     #1e7a50;
+  --locked:       #8a2828;
+  --seeing:       #1e6a6a;
+  --paused:       #4a3868;
+
+  --good:         #1e7a50;
+  --bad:          #8a2828;
+  --warn:         #8a6c1a;
+}
+
+/* ── Reset ───────────────────────────────────────────────────── */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ── Root layout ─────────────────────────────────────────────── */
+html, body {
+  width:  360px;
+  height: 490px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Titlebar ────────────────────────────────────────────────── */
+#titlebar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  height: 36px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  flex-shrink: 0;
+}
+
+#state-indicator {
+  width: 7px;
+  height: 7px;
+  background: var(--idle);
+  flex-shrink: 0;
+}
+
+#state-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-hi);
+  letter-spacing: 0.12em;
+}
+
+#state-mode {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text);
+  letter-spacing: 0.06em;
+  flex: 1;
+}
+
+#titlebar-controls {
+  display: flex;
+  gap: 2px;
+  -webkit-app-region: no-drag;
+}
+
+.ctrl-btn {
+  width: 22px;
+  height: 20px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+}
+
+/* ── Status strip ────────────────────────────────────────────── */
+#status-strip {
+  display: flex;
+  align-items: stretch;
+  height: 26px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.strip-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 9px;
+  flex: 1;
+}
+
+.strip-divider {
+  width: 1px;
+  background: var(--border);
+  margin: 5px 0;
+}
+
+.strip-dot {
+  width: 5px;
+  height: 5px;
+  background: var(--idle);
+  flex-shrink: 0;
+}
+
+.strip-key {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+}
+
+.strip-val {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-mid);
+}
+
+/* ── Mic row ─────────────────────────────────────────────────── */
+#mic-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.row-key {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  width: 22px;
+  flex-shrink: 0;
+}
+
+#mic-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.mbar {
+  display: block;
+  width: 3px;
+  height: 2px;
+  background: var(--idle);
+  flex-shrink: 0;
+}
+
+#heard-text {
+  font-size: 9px;
+  color: var(--text-dim);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* ── Conversation ────────────────────────────────────────────── */
+#conversation {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+#empty-state {
+  margin: auto;
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+}
+
+.msg-block {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.msg-block:last-child {
+  border-bottom: none;
+}
+
+.msg-header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 3px;
+}
+
+.msg-role {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+.msg-role.you    { color: var(--accent); }
+.msg-role.jarvis { color: var(--speaking); }
+
+.msg-ts {
+  font-size: 8px;
+  color: var(--text-dim);
+}
+
+.msg-text {
+  font-size: 10px;
+  color: var(--text-hi);
+  line-height: 1.55;
+  padding-left: 10px;
+  word-break: break-word;
+}
+
+/* ── Stats footer ────────────────────────────────────────────── */
+#stats-bar {
+  display: flex;
+  align-items: stretch;
+  height: 26px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.stat-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.stat-divider {
+  width: 1px;
+  background: var(--border);
+  margin: 5px 0;
+}
+
+.stat-key {
+  font-size: 8px;
+  color: var(--text-dim);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.stat-val {
+  font-size: 10px;
+  color: var(--text-mid);
+  font-weight: 500;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+#conversation::-webkit-scrollbar        { width: 2px; }
+#conversation::-webkit-scrollbar-track  { background: transparent; }
+#conversation::-webkit-scrollbar-thumb  { background: var(--border-hi); }
+
+/* ── State color utility (applied via JS) ────────────────────── */
+.state-idle      { background: var(--idle) !important; }
+.state-listening { background: var(--listening) !important; }
+.state-thinking  { background: var(--thinking) !important; }
+.state-speaking  { background: var(--speaking) !important; }
+.state-locked    { background: var(--locked) !important; }
+.state-seeing    { background: var(--seeing) !important; }
+.state-paused    { background: var(--paused) !important; }

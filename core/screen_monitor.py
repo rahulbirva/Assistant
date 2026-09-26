@@ -82,13 +82,30 @@ class ScreenMonitor:
                 logger.log("ERROR", f"Failed to initialize EasyOCR reader: {ex}")
 
     def capture_screenshot(self) -> Optional[Image.Image]:
-        """Captures a screenshot of the primary screen, ensuring interactive desktop attachment."""
-        ensure_interactive_desktop()
-        try:
-            img = ImageGrab.grab()
-            return img
-        except Exception as e:
-            logger.log("WARN", f"Screen capture notice: {e}")
+        """
+        Captures a screenshot of the primary screen.
+        Uses a clean worker thread to guarantee successful SetThreadDesktop attachment
+        even if the caller thread has already allocated console or GUI handles.
+        """
+        result = []
+
+        def _do_grab():
+            ensure_interactive_desktop()
+            try:
+                img = ImageGrab.grab()
+                result.append(img)
+            except Exception as e:
+                result.append(None)
+
+        # Run in a dedicated thread with fresh Win32 thread state
+        t = threading.Thread(target=_do_grab, name="ScreenGrabWorker")
+        t.start()
+        t.join(timeout=4.0)
+
+        if result and result[0] is not None:
+            return result[0]
+        else:
+            logger.log("WARN", "Screen capture returned None")
             return None
 
     def process_screenshot(self, img: Image.Image) -> List[Dict[str, Any]]:
