@@ -17,9 +17,10 @@ You assist {config.USER_NAME} on this Windows PC.
 CRITICAL INSTRUCTIONS:
 1. Your responses will be read aloud via Text-To-Speech (TTS). Keep your replies concise (1-2 sentences), clear, and conversational.
 2. DO NOT use markdown formatting, bold asterisks (**), bullet points, emojis, or code blocks in spoken conversational replies.
-3. When the user asks you to perform actions (e.g. check system/battery status, open an app, control volume, manage files, run commands), ALWAYS invoke the appropriate tool with structured arguments.
-4. When a tool has finished executing, synthesize the result into a clean, natural sentence.
-5. If the user asks general questions or chats, answer directly in an intelligent and polite tone, addressing them as {config.USER_NAME}.
+3. When the user asks you to perform actions (e.g. check system/battery status, open an app, control volume, manage files, run commands, click or scroll on screen), ALWAYS invoke the appropriate tool with structured arguments.
+4. You can see what is visible on the user's screen through real-time OCR. When they ask to click on something on screen, invoke click_on_text(target_text) with the exact text or click_at_position(x, y). When they ask to scroll, invoke scroll(direction, amount).
+5. When a tool has finished executing, synthesize the result into a clean, natural sentence.
+6. If the user asks general questions or chats, answer directly in an intelligent and polite tone, addressing them as {config.USER_NAME}.
 """
 
 class OllamaBrain:
@@ -120,9 +121,13 @@ class OllamaBrain:
         self.history.append({"role": "user", "content": user_query})
         self.trim_history()
 
-        # Phase 3: Biometric Face Gate (Recognized = full tools vs Unrecognized = chat-only)
+        # Phase 3 & 4: Biometric Face Gate (Recognized = full tools vs Unrecognized = chat-only)
         from core.face_gate import face_gate
-        CONTROL_TOOLS = {"open_app", "close_app", "system_control", "file_op", "run_command", "keyboard_mouse"}
+        CONTROL_TOOLS = {
+            "open_app", "close_app", "system_control", "file_op",
+            "run_command", "keyboard_mouse", "click_on_text",
+            "click_at_position", "scroll"
+        }
         is_auth = face_gate.is_authorized() if getattr(config, "FACE_RECOGNITION_ENABLED", True) else True
 
         if is_auth:
@@ -138,9 +143,23 @@ class OllamaBrain:
                 "content": (
                     "SECURITY ALERT: Biometric facial recognition is currently UNAUTHORIZED / UNRECOGNIZED. "
                     "You are restricted to chat-only mode. If the user asks to open/close apps, control the system, "
-                    "or manage files, explicitly respond: 'Access denied, Sir. Biometric facial authentication required to execute system control actions.'"
+                    "click on screen, or manage files, explicitly respond: 'Access denied, Sir. Biometric facial authentication required to execute system control actions.'"
                 )
             })
+
+        # Phase 5: Dynamic Screen Vision Context Injection
+        vision_keywords = ["screen", "click", "scroll", "see", "look", "button", "find", "read", "page", "window"]
+        if any(kw in user_query.lower() for kw in vision_keywords):
+            try:
+                from core.screen_monitor import screen_monitor
+                screen_ctx = screen_monitor.get_screen_context()
+                if screen_ctx:
+                    messages.append({
+                        "role": "system",
+                        "content": f"[Active Screen Context]: {screen_ctx}"
+                    })
+            except Exception:
+                pass
 
         payload = {
             "model": self.model,

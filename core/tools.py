@@ -180,6 +180,66 @@ TOOL_DEFINITIONS = [
                 "required": ["action"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "click_on_text",
+            "description": "Locate text visible on screen using computer vision OCR and click on it (e.g., 'click on search', 'click on videos', 'click on upload').",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target_text": {
+                        "type": "string",
+                        "description": "The exact or partial text of the button, link, or label visible on screen to click."
+                    }
+                },
+                "required": ["target_text"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "click_at_position",
+            "description": "Click at specific screen pixel coordinates (X, Y) via mouse automation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x": {
+                        "type": "integer",
+                        "description": "The horizontal pixel coordinate."
+                    },
+                    "y": {
+                        "type": "integer",
+                        "description": "The vertical pixel coordinate."
+                    }
+                },
+                "required": ["x", "y"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "scroll",
+            "description": "Scroll the active window or webpage up, down, left, or right.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "direction": {
+                        "type": "string",
+                        "enum": ["up", "down", "left", "right"],
+                        "description": "Direction to scroll. Defaults to 'down'."
+                    },
+                    "amount": {
+                        "type": "integer",
+                        "description": "Number of scroll increments (e.g. 1, 3, 5). Defaults to 3."
+                    }
+                },
+                "required": ["direction"]
+            }
+        }
     }
 ]
 
@@ -598,6 +658,66 @@ class ToolExecutor:
                 return "Invalid scroll value."
 
         return f"Unknown input action: {action}"
+
+    def _tool_click_on_text(self, args: Dict[str, Any]) -> str:
+        target = args.get("target_text", "").strip()
+        if not target:
+            return "No target text provided to click on."
+
+        from core.screen_monitor import screen_monitor
+        logger.log("ACTION", f"[SEEING] Searching screen for text: '{target}'...")
+        match = screen_monitor.find_text(target)
+
+        if match:
+            cx, cy = match["center"]
+            matched_txt = match["text"]
+            logger.log("ACTION", f"[CLICKING] Found text '{matched_txt}' at position ({cx}, {cy}) — clicking.")
+            if pyautogui:
+                pyautogui.click(cx, cy)
+            return f"Clicked on '{matched_txt}' at screen position ({cx}, {cy})."
+        else:
+            _, results, summary = screen_monitor.get_latest_data()
+            items = [f"'{r['text']}'" for r in results[:8]]
+            visible_str = f"Visible elements: {', '.join(items)}" if items else "No clear text detected."
+            return f"I don't see '{target}' on the screen. {visible_str}"
+
+    def _tool_click_at_position(self, args: Dict[str, Any]) -> str:
+        try:
+            x = int(args.get("x", 0))
+            y = int(args.get("y", 0))
+        except (ValueError, TypeError):
+            return "Invalid X or Y coordinates provided."
+
+        logger.log("ACTION", f"[CLICKING] Clicked at ({x}, {y})")
+        if pyautogui:
+            pyautogui.click(x, y)
+        return f"Clicked at coordinates ({x}, {y})."
+
+    def _tool_scroll(self, args: Dict[str, Any]) -> str:
+        direction = args.get("direction", "down").lower().strip()
+        try:
+            amount = int(args.get("amount", 3))
+        except (ValueError, TypeError):
+            amount = 3
+
+        if not pyautogui:
+            return "PyAutoGUI is not available."
+
+        # Windows wheel clicks (120 per notch)
+        clicks = amount * 120
+        if direction == "down":
+            pyautogui.scroll(-clicks)
+        elif direction == "up":
+            pyautogui.scroll(clicks)
+        elif direction == "left":
+            pyautogui.hscroll(-clicks)
+        elif direction == "right":
+            pyautogui.hscroll(clicks)
+        else:
+            pyautogui.scroll(-clicks)
+
+        logger.log("ACTION", f"[SCROLLING] Scrolled {direction} {amount} clicks")
+        return f"Scrolled {direction} by {amount} clicks."
 
 
 tool_executor = ToolExecutor()
