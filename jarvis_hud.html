@@ -154,36 +154,36 @@
     }
   </style>
 </head>
-<body class="min-h-screen font-mono text-xs md:text-sm flex flex-col justify-between p-4 md:p-6 overflow-hidden">
+<body class="h-screen w-screen max-h-screen flex flex-col justify-between p-1.5 md:p-3 overflow-hidden font-mono text-xs md:text-sm select-none">
 
   <!-- Top Navigation & Telemetry Header -->
-  <header class="w-full flex items-center justify-between border-b border-hud-glassBorder pb-3 backdrop-blur-md bg-hud-glass/40 hud-bracket px-4 py-2">
-    <div class="flex items-center gap-3">
+  <header class="w-full flex-shrink-0 flex items-center justify-between border-b border-hud-glassBorder pb-1.5 md:pb-2 backdrop-blur-md bg-hud-glass/60 hud-bracket px-2.5 md:px-4 py-1.5">
+    <div class="flex items-center gap-2 md:gap-3">
       <div class="w-2.5 h-2.5 bg-hud-cyan rounded-full animate-ping"></div>
-      <div class="font-orbitron font-bold tracking-widest text-hud-cyan text-base md:text-lg flex items-center gap-2">
+      <div class="font-orbitron font-bold tracking-widest text-hud-cyan text-sm md:text-lg flex items-center gap-2">
         <span>JARVIS</span>
-        <span class="text-[10px] text-hud-cyan/60 font-mono tracking-normal border border-hud-cyan/30 px-1.5 py-0.5 rounded">MK-VII // SYS.ONLINE</span>
+        <span class="text-[9px] md:text-[10px] text-hud-cyan/60 font-mono tracking-normal border border-hud-cyan/30 px-1 py-0.5 rounded hidden xs:inline">MK-VII // SYS.ONLINE</span>
       </div>
     </div>
 
     <!-- Quick Status Badges -->
-    <div class="hidden sm:flex items-center gap-4 text-[11px] tracking-wider text-hud-cyan/80">
-      <div class="flex items-center gap-1.5 border border-hud-cyan/20 bg-hud-black/50 px-2.5 py-1 rounded">
+    <div class="hidden sm:flex items-center gap-2 md:gap-4 text-[10px] md:text-[11px] tracking-wider text-hud-cyan/80">
+      <div class="flex items-center gap-1 border border-hud-cyan/20 bg-hud-black/50 px-2 py-0.5 rounded">
         <span class="text-hud-cyan/50">CPU:</span>
         <span id="header-cpu" class="text-hud-cyan font-bold">12%</span>
       </div>
-      <div class="flex items-center gap-1.5 border border-hud-cyan/20 bg-hud-black/50 px-2.5 py-1 rounded">
+      <div class="flex items-center gap-1 border border-hud-cyan/20 bg-hud-black/50 px-2 py-0.5 rounded">
         <span class="text-hud-cyan/50">GPU:</span>
         <span id="header-gpu" class="text-hud-cyan font-bold">RTX 5060 (38°C)</span>
       </div>
-      <div class="flex items-center gap-1.5 border border-hud-cyan/20 bg-hud-black/50 px-2.5 py-1 rounded">
+      <div class="flex items-center gap-1 border border-hud-cyan/20 bg-hud-black/50 px-2 py-0.5 rounded">
         <span class="text-hud-cyan/50">LINK:</span>
         <span id="ws-indicator" class="text-hud-emerald font-bold">ACTIVE</span>
       </div>
     </div>
 
     <!-- Clock & Master Power Control -->
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2 md:gap-3">
       <div id="hud-clock" class="hidden md:block font-mono text-hud-cyan text-xs font-semibold tracking-widest">
         00:00:00 UTC
       </div>
@@ -193,27 +193,27 @@
         id="btn-power" 
         onclick="togglePowerMenu()" 
         title="Master System Power Control"
-        class="flex items-center gap-2 px-3 py-1.5 rounded bg-hud-cyan/15 hover:bg-hud-cyan/30 border border-hud-cyan/50 text-hud-cyan transition font-orbitron text-xs font-bold tracking-wider shadow-[0_0_12px_rgba(0,240,255,0.3)] active:scale-95">
+        class="flex items-center gap-1.5 md:gap-2 px-2.5 py-1 md:py-1.5 rounded bg-hud-cyan/15 hover:bg-hud-cyan/30 border border-hud-cyan/50 text-hud-cyan transition font-orbitron text-[11px] md:text-xs font-bold tracking-wider shadow-[0_0_12px_rgba(0,240,255,0.3)] active:scale-95">
         <span id="power-dot" class="inline-block w-2 h-2 rounded-full bg-hud-emerald animate-pulse"></span>
-        <span id="power-label">SYSTEM ONLINE</span>
+        <span id="power-label" class="hidden sm:inline">SYSTEM ONLINE</span>
         <span class="text-xs text-hud-cyan/80">⏻</span>
       </button>
 
       <!-- Web / Window Action Controls -->
-      <div class="flex items-center gap-1.5 border-l border-hud-cyan/30 pl-2">
+      <div class="flex items-center gap-1 md:gap-1.5 border-l border-hud-cyan/30 pl-1.5 md:pl-2">
         <button 
           id="btn-sfx" 
           onclick="toggleSfx()" 
           title="Toggle Tactical Audio Synthesizer" 
-          class="px-2 py-1 text-xs rounded border border-hud-cyan/30 bg-hud-cyan/10 text-hud-cyan hover:bg-hud-cyan/20 hover:border-hud-cyan transition">
+          class="px-2 py-1 text-[11px] md:text-xs rounded border border-hud-cyan/30 bg-hud-cyan/10 text-hud-cyan hover:bg-hud-cyan/20 hover:border-hud-cyan transition">
           🔊 SFX
         </button>
         <button 
           id="btn-fullscreen" 
           onclick="toggleFullscreen()" 
-          title="Toggle Fullscreen Tactical HUD" 
-          class="px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/70 hover:text-hud-cyan hover:border-hud-cyan transition font-bold">
-          ⛶ FULLSCREEN
+          title="Toggle 100% Fullscreen View (F11)" 
+          class="px-2 py-1 text-[11px] md:text-xs rounded border border-hud-cyan/30 bg-hud-black/40 text-hud-cyan hover:bg-hud-cyan/20 hover:border-hud-cyan transition font-bold flex items-center gap-1">
+          <span>⛶</span> <span class="hidden sm:inline">FULLSCREEN</span>
         </button>
         <button 
           id="btn-pin" 
@@ -258,122 +258,146 @@
     </div>
   </div>
 
-  <!-- Core Content Area: Centered Reactor + Floating Terminal -->
-  <main class="flex-1 flex flex-col my-4 gap-4 max-w-6xl w-full mx-auto justify-between overflow-hidden">
+  <!-- Main Tactical Workspace (Side-by-side Dual-Wing on md screens and up) -->
+  <main class="flex-1 min-h-0 w-full my-1 md:my-2 grid grid-cols-1 md:grid-cols-12 gap-2 md:gap-3 items-stretch overflow-hidden">
     
-    <!-- 1. AI State Indicator (Top / Center Arc-Reactor HUD) -->
-    <section class="flex flex-col items-center justify-center pt-2 pb-1 relative">
+    <!-- LEFT WING: Arc Reactor Core & Telemetry Matrix (md:col-span-5 lg:col-span-4) -->
+    <section class="md:col-span-5 lg:col-span-4 flex flex-col justify-between items-center rounded-lg border border-hud-glassBorder bg-hud-glass/70 backdrop-blur-xl p-2.5 md:p-3.5 hud-bracket overflow-y-auto shadow-xl">
       
-      <!-- Arc Reactor Visualizer Container -->
-      <div id="state-container" class="state-idle relative flex items-center justify-center w-48 h-48 md:w-56 md:h-56">
-        
+      <!-- Arc Reactor Visualizer (scales responsively to viewport height) -->
+      <div id="state-container" class="state-idle relative flex items-center justify-center w-28 h-28 sm:w-32 sm:h-32 md:w-36 md:h-36 lg:w-44 lg:h-44 my-auto flex-shrink-0">
         <!-- Outer Rotating Gyro Ring (Dashed) -->
         <div class="absolute inset-0 rounded-full border border-dashed border-hud-cyan/30 animate-spin-slow pointer-events-none"></div>
-        
         <!-- Counter-Rotating Tech Ring with Hash Marks -->
-        <div class="absolute inset-3 rounded-full border border-hud-cyan/40 animate-spin-reverse pointer-events-none border-t-transparent border-b-transparent"></div>
-        
+        <div class="absolute inset-2 rounded-full border border-hud-cyan/40 animate-spin-reverse pointer-events-none border-t-transparent border-b-transparent"></div>
         <!-- Inner Segmented Ring -->
-        <div class="absolute inset-7 rounded-full border-2 border-hud-cyan/20 pointer-events-none"></div>
-
+        <div class="absolute inset-4 rounded-full border-2 border-hud-cyan/20 pointer-events-none"></div>
         <!-- Center Glowing Core Orb -->
-        <div class="core-orb w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all duration-500 z-10">
-          <div class="w-8 h-8 rounded-full bg-hud-black/80 border border-hud-cyan/80 flex items-center justify-center">
-            <div id="inner-pulsar" class="w-3 h-3 bg-hud-cyan rounded-full animate-ping"></div>
+        <div class="core-orb w-11 h-11 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all duration-500 z-10">
+          <div class="w-6 h-6 md:w-7 md:h-7 rounded-full bg-hud-black/80 border border-hud-cyan/80 flex items-center justify-center">
+            <div id="inner-pulsar" class="w-2 h-2 md:w-2.5 md:h-2.5 bg-hud-cyan rounded-full animate-ping"></div>
           </div>
         </div>
-
-        <!-- Waveform Visualizer Bars (Surrounding the Core) -->
+        <!-- Waveform Visualizer Bars -->
         <div id="waveform-ring" class="absolute inset-0 flex items-center justify-center gap-1 pointer-events-none opacity-80">
-          <div class="wave-bar w-1 bg-hud-cyan h-4"></div>
+          <div class="wave-bar w-1 bg-hud-cyan h-3"></div>
+          <div class="wave-bar w-1 bg-hud-cyan h-5"></div>
           <div class="wave-bar w-1 bg-hud-cyan h-8"></div>
-          <div class="wave-bar w-1 bg-hud-cyan h-12"></div>
+          <div class="wave-bar w-1 bg-hud-cyan h-4"></div>
           <div class="wave-bar w-1 bg-hud-cyan h-6"></div>
-          <div class="wave-bar w-1 bg-hud-cyan h-10"></div>
         </div>
-
       </div>
 
       <!-- State Text Badge & Subtitle -->
-      <div class="flex flex-col items-center mt-2 z-20">
-        <div class="text-[10px] text-hud-cyan/60 uppercase tracking-widest">SYSTEM STATUS</div>
-        <div id="state-label" class="font-orbitron text-xl md:text-2xl font-bold tracking-widest text-hud-cyan text-shadow shadow-hud-cyan">
+      <div class="flex flex-col items-center text-center my-1 z-20 flex-shrink-0">
+        <div class="text-[9px] md:text-[10px] text-hud-cyan/60 uppercase tracking-widest font-mono">SYSTEM STATUS</div>
+        <div id="state-label" class="font-orbitron text-base md:text-xl font-bold tracking-widest text-hud-cyan">
           IDLE
         </div>
-        <div id="state-desc" class="text-xs text-hud-cyan/70 font-mono tracking-wider mt-0.5">
+        <div id="state-desc" class="text-[10px] md:text-xs text-hud-cyan/70 font-mono tracking-wider mt-0.5 line-clamp-1 max-w-xs">
           Monitoring ambient telemetry // Ready for input
         </div>
       </div>
 
-      <!-- State Manual Switcher Buttons for Testing -->
-      <div class="flex items-center gap-2 mt-3 text-[10px]">
-        <button onclick="setAiState('IDLE')" class="px-2.5 py-1 rounded bg-hud-glass border border-hud-cyan/30 text-hud-cyan/80 hover:text-hud-cyan hover:border-hud-cyan transition">IDLE</button>
-        <button onclick="setAiState('LISTENING')" class="px-2.5 py-1 rounded bg-hud-glass border border-hud-emerald/30 text-hud-emerald/80 hover:text-hud-emerald hover:border-hud-emerald transition">LISTENING</button>
-        <button onclick="setAiState('THINKING')" class="px-2.5 py-1 rounded bg-hud-glass border border-hud-amber/30 text-hud-amber/80 hover:text-hud-amber hover:border-hud-amber transition">THINKING</button>
-        <button onclick="setAiState('SPEAKING')" class="px-2.5 py-1 rounded bg-hud-glass border border-hud-cyan/30 text-cyan-300 hover:text-white hover:border-white transition">SPEAKING</button>
+      <!-- Quick Telemetry Gauges Matrix -->
+      <div class="w-full grid grid-cols-2 gap-1.5 my-1.5 text-[10px] md:text-[11px] flex-shrink-0">
+        <div class="border border-hud-cyan/20 bg-hud-black/40 p-1.5 rounded flex flex-col justify-between">
+          <div class="text-hud-cyan/50 text-[9px]">CPU TELEMETRY</div>
+          <div class="flex items-center justify-between mt-0.5">
+            <span id="panel-cpu" class="text-hud-cyan font-bold font-orbitron">12%</span>
+            <span class="text-[9px] text-hud-emerald">OPTIMAL</span>
+          </div>
+        </div>
+        <div class="border border-hud-cyan/20 bg-hud-black/40 p-1.5 rounded flex flex-col justify-between">
+          <div class="text-hud-cyan/50 text-[9px]">GPU ACCEL</div>
+          <div class="flex items-center justify-between mt-0.5">
+            <span id="panel-gpu" class="text-hud-cyan font-bold font-orbitron">RTX 5060</span>
+            <span class="text-[9px] text-hud-emerald">CUDA</span>
+          </div>
+        </div>
+        <div class="border border-hud-cyan/20 bg-hud-black/40 p-1.5 rounded flex flex-col justify-between">
+          <div class="text-hud-cyan/50 text-[9px]">STT ENGINE</div>
+          <div class="flex items-center justify-between mt-0.5">
+            <span class="text-hud-cyan font-bold font-orbitron">WHISPER</span>
+            <span class="text-[9px] text-hud-emerald">float16</span>
+          </div>
+        </div>
+        <div class="border border-hud-cyan/20 bg-hud-black/40 p-1.5 rounded flex flex-col justify-between">
+          <div class="text-hud-cyan/50 text-[9px]">AI BRAIN</div>
+          <div class="flex items-center justify-between mt-0.5">
+            <span class="text-hud-cyan font-bold font-orbitron">LLAMA 3.2</span>
+            <span class="text-[9px] text-hud-emerald">ONLINE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- State Manual Switcher Buttons -->
+      <div class="flex items-center gap-1 mt-auto pt-1 text-[9px] md:text-[10px] flex-shrink-0">
+        <button onclick="setAiState('IDLE')" class="px-1.5 py-0.5 rounded bg-hud-glass border border-hud-cyan/30 text-hud-cyan/80 hover:text-hud-cyan hover:border-hud-cyan transition">IDLE</button>
+        <button onclick="setAiState('LISTENING')" class="px-1.5 py-0.5 rounded bg-hud-glass border border-hud-emerald/30 text-hud-emerald/80 hover:text-hud-emerald hover:border-hud-emerald transition">LISTENING</button>
+        <button onclick="setAiState('THINKING')" class="px-1.5 py-0.5 rounded bg-hud-glass border border-hud-amber/30 text-hud-amber/80 hover:text-hud-amber hover:border-hud-amber transition">THINKING</button>
+        <button onclick="setAiState('SPEAKING')" class="px-1.5 py-0.5 rounded bg-hud-glass border border-hud-cyan/30 text-cyan-300 hover:text-white hover:border-white transition">SPEAKING</button>
       </div>
 
     </section>
 
-    <!-- 2. Action Log / System Terminal (Main Body) -->
-    <section class="flex-1 flex flex-col min-h-[260px] md:min-h-[320px] rounded-lg border border-hud-glassBorder bg-hud-glass backdrop-blur-xl shadow-2xl hud-bracket p-3 md:p-4 overflow-hidden">
+    <!-- RIGHT WING: System Log Stream & Executive Command Prompt (md:col-span-7 lg:col-span-8) -->
+    <section class="md:col-span-7 lg:col-span-8 flex flex-col h-full rounded-lg border border-hud-glassBorder bg-hud-glass/70 backdrop-blur-xl p-2.5 md:p-3.5 hud-bracket overflow-hidden shadow-2xl min-h-0">
       
       <!-- Terminal Header Bar -->
-      <div class="flex items-center justify-between border-b border-hud-cyan/20 pb-2 mb-3 text-xs">
+      <div class="flex-shrink-0 flex items-center justify-between border-b border-hud-cyan/20 pb-1.5 mb-1.5 text-xs">
         <div class="flex items-center gap-2 text-hud-cyan font-bold tracking-wider">
-          <span class="inline-block w-2 h-2 bg-hud-cyan rounded-full"></span>
+          <span class="inline-block w-2 h-2 bg-hud-cyan rounded-full animate-pulse"></span>
           <span>SYSTEM_LOG // ACTION_STREAM</span>
         </div>
-        <div class="text-[11px] text-hud-cyan/50 tracking-widest uppercase">
-          SECURE ENCRYPTED PROTOCOL [AES-256]
+        <div class="text-[10px] md:text-[11px] text-hud-cyan/50 tracking-widest uppercase">
+          SECURE PROTOCOL [LOCAL:7788]
         </div>
       </div>
 
-      <!-- Scrollable Message Feed -->
-      <div id="action-log" class="flex-1 overflow-y-auto space-y-3 pr-2 scroll-smooth">
-        
+      <!-- Scrollable Message Feed (Flex-1 ensures it fills available height without pushing prompt down) -->
+      <div id="action-log" class="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1.5 scroll-smooth">
         <!-- Initial Handshake Entries -->
         <div class="flex items-start gap-2 max-w-xl text-left">
-          <div class="text-hud-cyan/50 text-[11px] pt-0.5 whitespace-nowrap">[09:00:00]</div>
-          <div class="bg-hud-cyan/10 border-l-2 border-hud-cyan text-hud-cyan p-2 rounded-r-md text-xs leading-relaxed">
+          <div class="text-hud-cyan/50 text-[10px] md:text-[11px] pt-0.5 whitespace-nowrap">[09:00:00]</div>
+          <div class="bg-hud-cyan/10 border-l-2 border-hud-cyan text-hud-cyan p-2 rounded-r-md text-[11px] md:text-xs leading-relaxed">
             <span class="font-bold text-hud-cyan block mb-0.5">// JARVIS CORE INITIALIZED</span>
             Local GPU acceleration engaged. Neural reasoning model online. Standing by for instructions, Sir.
           </div>
         </div>
-
       </div>
 
-    </section>
+      <!-- Command Input Prompt (ALWAYS VISIBLE & PINNED AT BOTTOM OF RIGHT WING) -->
+      <div class="flex-shrink-0 pt-2 border-t border-hud-cyan/20 mt-1.5">
+        <form id="command-form" class="relative flex items-center rounded-lg border border-hud-cyan/40 bg-hud-black/80 backdrop-blur-md p-1 focus-within:border-hud-cyan focus-within:shadow-[0_0_15px_rgba(0,240,255,0.4)] transition-all hud-bracket">
+          <div class="flex items-center pl-2.5 pr-1.5 text-hud-cyan font-bold tracking-wider select-none">
+            <span class="text-sm md:text-base text-hud-cyan mr-1">&gt;</span>
+            <span class="text-[9px] md:text-[10px] text-hud-cyan/60 hidden sm:inline">INPUT_</span>
+          </div>
+          <input 
+            id="command-input" 
+            type="text" 
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Type command (e.g. 'Play Minecraft on YouTube', 'What is mobile?')..." 
+            class="flex-1 bg-transparent py-1.5 px-1.5 text-xs md:text-sm text-hud-cyan placeholder-hud-cyan/30 focus:outline-none font-mono min-w-0"
+          />
+          <div class="terminal-cursor mr-2"></div>
+          <button 
+            type="submit" 
+            class="px-3 md:px-4 py-1.5 bg-hud-cyan/20 hover:bg-hud-cyan text-hud-cyan hover:text-hud-black border border-hud-cyan/50 rounded font-orbitron text-[10px] md:text-xs font-bold tracking-wider transition-all duration-200 flex-shrink-0">
+            EXECUTE
+          </button>
+        </form>
+      </div>
 
-    <!-- 3. Command Input Prompt (Bottom) -->
-    <section class="w-full">
-      <form id="command-form" class="relative flex items-center rounded-lg border border-hud-cyan/40 bg-hud-black/80 backdrop-blur-md p-1.5 focus-within:border-hud-cyan focus-within:shadow-[0_0_15px_rgba(0,240,255,0.4)] transition-all hud-bracket">
-        <div class="flex items-center pl-3 pr-2 text-hud-cyan font-bold tracking-wider select-none">
-          <span class="text-base text-hud-cyan mr-1">&gt;</span>
-          <span class="text-[10px] text-hud-cyan/60 hidden sm:inline">INPUT_</span>
-        </div>
-        <input 
-          id="command-input" 
-          type="text" 
-          autocomplete="off"
-          spellcheck="false"
-          placeholder="Type an executive command (e.g., 'Status report', 'Open terminal', 'Analyze system')..." 
-          class="flex-1 bg-transparent py-2.5 px-2 text-xs md:text-sm text-hud-cyan placeholder-hud-cyan/30 focus:outline-none font-mono"
-        />
-        <div class="terminal-cursor mr-2"></div>
-        <button 
-          type="submit" 
-          class="px-4 py-2 bg-hud-cyan/20 hover:bg-hud-cyan text-hud-cyan hover:text-hud-black border border-hud-cyan/50 rounded font-orbitron text-xs font-bold tracking-wider transition-all duration-200">
-          EXECUTE
-        </button>
-      </form>
     </section>
 
   </main>
 
   <!-- Footer Stats -->
-  <footer class="w-full border-t border-hud-glassBorder/60 pt-2 flex flex-col sm:flex-row items-center justify-between text-[11px] text-hud-cyan/50">
-    <div>OFFLINE NEURAL WORKSTATION // NO CLOUD DEPENDENCY</div>
+  <footer class="w-full flex-shrink-0 border-t border-hud-glassBorder/60 pt-1 flex flex-col sm:flex-row items-center justify-between text-[10px] md:text-[11px] text-hud-cyan/50">
+    <div>OFFLINE NEURAL WORKSTATION // NO CLOUD DEPENDENCY // LOCALHOST:7788</div>
     <div class="flex items-center gap-4 mt-1 sm:mt-0">
       <span>LATENCY: <strong class="text-hud-cyan">0.4ms</strong></span>
       <span>VRAM: <strong class="text-hud-cyan">2.4 / 8.0 GB</strong></span>
@@ -732,11 +756,27 @@
     function toggleFullscreen() {
       playSfx('blip');
       if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(err => console.log(err));
+        document.documentElement.requestFullscreen().catch(err => {
+          console.warn('Fullscreen request:', err);
+        });
       } else {
-        if (document.exitFullscreen) document.exitFullscreen();
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(err => console.warn('Exit fullscreen:', err));
+        }
       }
     }
+
+    document.addEventListener('fullscreenchange', () => {
+      const btn = document.getElementById('btn-fullscreen');
+      if (!btn) return;
+      if (document.fullscreenElement) {
+        btn.innerHTML = '<span>🗗</span> <span class="hidden sm:inline">EXIT FULL</span>';
+        btn.classList.add('bg-hud-cyan/20', 'border-hud-cyan');
+      } else {
+        btn.innerHTML = '<span>⛶</span> <span class="hidden sm:inline">FULLSCREEN</span>';
+        btn.classList.remove('bg-hud-cyan/20', 'border-hud-cyan');
+      }
+    });
 
     // ── Window Frame & Pin Controls ──────────────────────────────
     let isWindowPinned = false;
