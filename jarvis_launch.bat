@@ -13,12 +13,5 @@ start "" /B "%~dp0.venv\Scripts\pythonw.exe" "%~dp0jarvis_service.py"
 :: Brief pause to let backend bind WebSocket port 7789
 timeout /t 4 /nobreak >nul
 
-:: ── 2. Start the Electron HUD (no window flicker) ────────────
-cd /d "%~dp0hud"
-if exist node_modules (
-    start "" /B npx electron .
-) else (
-    :: First-time install (only happens once)
-    call npm install --prefer-offline --silent
-    start "" /B npx electron .
-)
+:: ── 2. Open the Tactical HUD Website on localhost:7788 ────────────
+start "" "http://localhost:7788"

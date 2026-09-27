@@ -1,20 +1,11 @@
 @echo off
 :: ─────────────────────────────────────────────────────────────
-:: start_hud.bat — Launch the JARVIS Electron HUD overlay
-:: Run this alongside jarvis_service.py (or jarvis.py)
+:: start_hud.bat — Launch the JARVIS Tactical HUD Website
+:: Opens http://localhost:7788 in your default web browser
 :: ─────────────────────────────────────────────────────────────
 setlocal
-cd /d "%~dp0\hud"
+cd /d "%~dp0"
 
-if not exist node_modules (
-    echo [HUD] First run — installing Electron dependencies...
-    call npm install --prefer-offline
-    if errorlevel 1 (
-        echo [HUD] npm install failed. Make sure Node.js is installed.
-        pause
-        exit /b 1
-    )
-)
-
-echo [HUD] Starting JARVIS HUD overlay...
-call npm start
+echo [HUD] Opening JARVIS Tactical HUD Website on http://localhost:7788...
+start "" "http://localhost:7788"
+exit /b 0

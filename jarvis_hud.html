@@ -199,26 +199,28 @@
         <span class="text-xs text-hud-cyan/80">⏻</span>
       </button>
 
-      <!-- Window Action Controls -->
-      <div class="flex items-center gap-1 border-l border-hud-cyan/30 pl-2">
+      <!-- Web / Window Action Controls -->
+      <div class="flex items-center gap-1.5 border-l border-hud-cyan/30 pl-2">
+        <button 
+          id="btn-sfx" 
+          onclick="toggleSfx()" 
+          title="Toggle Tactical Audio Synthesizer" 
+          class="px-2 py-1 text-xs rounded border border-hud-cyan/30 bg-hud-cyan/10 text-hud-cyan hover:bg-hud-cyan/20 hover:border-hud-cyan transition">
+          🔊 SFX
+        </button>
+        <button 
+          id="btn-fullscreen" 
+          onclick="toggleFullscreen()" 
+          title="Toggle Fullscreen Tactical HUD" 
+          class="px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/70 hover:text-hud-cyan hover:border-hud-cyan transition font-bold">
+          ⛶ FULLSCREEN
+        </button>
         <button 
           id="btn-pin" 
           onclick="togglePinWindow()" 
-          title="Toggle Pin Always On Top (Default: Off)" 
-          class="px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/50 hover:text-hud-cyan hover:border-hud-cyan transition">
+          title="Toggle Pin Always On Top (Desktop App Mode)" 
+          class="hidden px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/50 hover:text-hud-cyan hover:border-hud-cyan transition">
           📌
-        </button>
-        <button 
-          onclick="windowMinimize()" 
-          title="Minimize Window" 
-          class="px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/70 hover:text-hud-cyan hover:border-hud-cyan transition">
-          &#8722;
-        </button>
-        <button 
-          onclick="windowClose()" 
-          title="Hide to Tray" 
-          class="px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/70 hover:text-hud-crimson hover:border-hud-crimson transition">
-          &#215;
         </button>
       </div>
     </div>
@@ -410,7 +412,11 @@
 
     // ── AI State Transition Manager ─────────────────────────────
     function setAiState(state) {
-      currentState = state.toUpperCase();
+      const nextState = state.toUpperCase();
+      if (currentState !== nextState) {
+        currentState = nextState;
+        playSfx('state');
+      }
       
       // Reset classes
       stateContainer.className = 'relative flex items-center justify-center w-48 h-48 md:w-56 md:h-56';
@@ -535,7 +541,9 @@
     });
 
     // ── Live WebSocket Bridge (Connects to local Jarvis backend port 7789) ──
-    const wsUri = 'ws://localhost:7789';
+    const wsHost = window.location.hostname || 'localhost';
+    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUri = `${wsProto}//${wsHost}:7789`;
     let socket = null;
 
     function initWebSocket() {
@@ -671,8 +679,73 @@
       }
     }
 
+    // ── Fullscreen & Audio Synthesizer (Web HUD Mode) ───────────
+    let sfxEnabled = true;
+    let audioCtx = null;
+
+    function toggleSfx() {
+      sfxEnabled = !sfxEnabled;
+      const btn = document.getElementById('btn-sfx');
+      if (btn) {
+        if (sfxEnabled) {
+          btn.innerText = '🔊 SFX';
+          btn.className = 'px-2 py-1 text-xs rounded border border-hud-cyan/30 bg-hud-cyan/10 text-hud-cyan hover:bg-hud-cyan/20 hover:border-hud-cyan transition';
+          playSfx('blip');
+        } else {
+          btn.innerText = '🔇 MUTED';
+          btn.className = 'px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/40 hover:text-hud-cyan transition';
+        }
+      }
+    }
+
+    function playSfx(type) {
+      if (!sfxEnabled) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+
+        if (type === 'blip') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, now);
+          osc.frequency.exponentialRampToValueAtTime(1760, now + 0.08);
+          gain.gain.setValueAtTime(0.04, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.08);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        } else if (type === 'state') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(660, now + 0.15);
+          gain.gain.setValueAtTime(0.03, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.15);
+          osc.start(now);
+          osc.stop(now + 0.15);
+        }
+      } catch (e) {}
+    }
+
+    function toggleFullscreen() {
+      playSfx('blip');
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => console.log(err));
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
     // ── Window Frame & Pin Controls ──────────────────────────────
     let isWindowPinned = false;
+
+    // Show desktop pin button only if loaded in Electron
+    if (window.electron) {
+      const pinBtn = document.getElementById('btn-pin');
+      if (pinBtn) pinBtn.classList.remove('hidden');
+    }
 
     function togglePinWindow() {
       isWindowPinned = !isWindowPinned;

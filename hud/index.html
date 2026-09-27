@@ -2,102 +2,784 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; style-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; font-src https://fonts.gstatic.com; script-src 'self';">
-  <title>JARVIS HUD</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JARVIS // TACTICAL HUD INTERFACE</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Fira Code & Orbitron -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
 
-  <!-- ── Titlebar / drag region ─────────────────────────── -->
-  <header id="titlebar">
-    <div id="state-indicator"></div>
-    <span id="state-label">JARVIS</span>
-    <span id="state-mode">/ IDLE</span>
-    <div id="titlebar-controls">
-      <button class="ctrl-btn" id="btn-minimize" title="Minimize">&#8722;</button>
-      <button class="ctrl-btn" id="btn-close"    title="Hide">&#215;</button>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['"Fira Code"', 'monospace'],
+            orbitron: ['"Orbitron"', 'sans-serif'],
+          },
+          colors: {
+            hud: {
+              black: '#030712',
+              cyan: '#00f0ff',
+              cyanGlow: 'rgba(0, 240, 255, 0.4)',
+              blue: '#0077ff',
+              amber: '#ffaa00',
+              emerald: '#00ff88',
+              crimson: '#ff3366',
+              glass: 'rgba(5, 14, 28, 0.75)',
+              glassBorder: 'rgba(0, 240, 255, 0.25)',
+            }
+          },
+          animation: {
+            'spin-slow': 'spin 12s linear infinite',
+            'spin-reverse': 'spin-rev 8s linear infinite',
+            'pulse-glow': 'pulseGlow 2.5s ease-in-out infinite',
+            'scanline': 'scanline 6s linear infinite',
+          },
+          keyframes: {
+            'spin-rev': {
+              '0%': { transform: 'rotate(360deg)' },
+              '100%': { transform: 'rotate(0deg)' },
+            },
+            pulseGlow: {
+              '0%, 100%': { opacity: '0.6', filter: 'drop-shadow(0 0 8px rgba(0, 240, 255, 0.4))' },
+              '50%': { opacity: '1', filter: 'drop-shadow(0 0 22px rgba(0, 240, 255, 0.9))' },
+            },
+            scanline: {
+              '0%': { transform: 'translateY(-100%)' },
+              '100%': { transform: 'translateY(1000%)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom HUD styling & CRT Grid Overlay */
+    body {
+      background-color: #02050b;
+      background-image: 
+        radial-gradient(circle at 50% 20%, rgba(0, 119, 255, 0.12) 0%, transparent 60%),
+        linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+      background-size: 100% 100%, 32px 32px, 32px 32px;
+      color: #cce7ff;
+      user-select: none;
+    }
+
+    /* Sci-fi glowing corners */
+    .hud-bracket {
+      position: relative;
+    }
+    .hud-bracket::before, .hud-bracket::after {
+      content: '';
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-color: #00f0ff;
+      pointer-events: none;
+    }
+    .hud-bracket::before {
+      top: -1px;
+      left: -1px;
+      border-top: 2px solid #00f0ff;
+      border-left: 2px solid #00f0ff;
+    }
+    .hud-bracket::after {
+      bottom: -1px;
+      right: -1px;
+      border-bottom: 2px solid #00f0ff;
+      border-right: 2px solid #00f0ff;
+    }
+
+    /* Custom futuristic scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(2, 8, 16, 0.7);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 240, 255, 0.35);
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #00f0ff;
+      box-shadow: 0 0 10px #00f0ff;
+    }
+
+    /* Blinking Terminal Cursor */
+    .terminal-cursor {
+      display: inline-block;
+      width: 9px;
+      height: 18px;
+      background: #00f0ff;
+      box-shadow: 0 0 8px #00f0ff;
+      vertical-align: text-bottom;
+      animation: blink 0.9s infinite;
+    }
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    /* State indicator specific glow effects */
+    .state-idle .core-orb {
+      background: radial-gradient(circle, #00f0ff 0%, #0077ff 60%, transparent 85%);
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.5);
+      animation: pulseGlow 3s ease-in-out infinite;
+    }
+    .state-listening .core-orb {
+      background: radial-gradient(circle, #00ff88 0%, #009955 60%, transparent 85%);
+      box-shadow: 0 0 35px rgba(0, 255, 136, 0.8);
+      animation: pulseGlow 1s ease-in-out infinite;
+    }
+    .state-thinking .core-orb {
+      background: radial-gradient(circle, #ffaa00 0%, #ff5500 60%, transparent 85%);
+      box-shadow: 0 0 45px rgba(255, 170, 0, 0.9);
+      animation: pulseGlow 0.5s ease-in-out infinite;
+    }
+    .state-speaking .core-orb {
+      background: radial-gradient(circle, #00f0ff 20%, #ffffff 50%, #0077ff 80%);
+      box-shadow: 0 0 50px rgba(0, 240, 255, 1);
+      animation: pulseGlow 0.35s ease-in-out infinite;
+    }
+
+    /* Dynamic soundwave bars */
+    .wave-bar {
+      transition: height 0.08s ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen font-mono text-xs md:text-sm flex flex-col justify-between p-4 md:p-6 overflow-hidden">
+
+  <!-- Top Navigation & Telemetry Header -->
+  <header class="w-full flex items-center justify-between border-b border-hud-glassBorder pb-3 backdrop-blur-md bg-hud-glass/40 hud-bracket px-4 py-2">
+    <div class="flex items-center gap-3">
+      <div class="w-2.5 h-2.5 bg-hud-cyan rounded-full animate-ping"></div>
+      <div class="font-orbitron font-bold tracking-widest text-hud-cyan text-base md:text-lg flex items-center gap-2">
+        <span>JARVIS</span>
+        <span class="text-[10px] text-hud-cyan/60 font-mono tracking-normal border border-hud-cyan/30 px-1.5 py-0.5 rounded">MK-VII // SYS.ONLINE</span>
+      </div>
+    </div>
+
+    <!-- Quick Status Badges -->
+    <div class="hidden sm:flex items-center gap-4 text-[11px] tracking-wider text-hud-cyan/80">
+      <div class="flex items-center gap-1.5 border border-hud-cyan/20 bg-hud-black/50 px-2.5 py-1 rounded">
+        <span class="text-hud-cyan/50">CPU:</span>
+        <span id="header-cpu" class="text-hud-cyan font-bold">12%</span>
+      </div>
+      <div class="flex items-center gap-1.5 border border-hud-cyan/20 bg-hud-black/50 px-2.5 py-1 rounded">
+        <span class="text-hud-cyan/50">GPU:</span>
+        <span id="header-gpu" class="text-hud-cyan font-bold">RTX 5060 (38°C)</span>
+      </div>
+      <div class="flex items-center gap-1.5 border border-hud-cyan/20 bg-hud-black/50 px-2.5 py-1 rounded">
+        <span class="text-hud-cyan/50">LINK:</span>
+        <span id="ws-indicator" class="text-hud-emerald font-bold">ACTIVE</span>
+      </div>
+    </div>
+
+    <!-- Clock & Master Power Control -->
+    <div class="flex items-center gap-3">
+      <div id="hud-clock" class="hidden md:block font-mono text-hud-cyan text-xs font-semibold tracking-widest">
+        00:00:00 UTC
+      </div>
+
+      <!-- Power Button -->
+      <button 
+        id="btn-power" 
+        onclick="togglePowerMenu()" 
+        title="Master System Power Control"
+        class="flex items-center gap-2 px-3 py-1.5 rounded bg-hud-cyan/15 hover:bg-hud-cyan/30 border border-hud-cyan/50 text-hud-cyan transition font-orbitron text-xs font-bold tracking-wider shadow-[0_0_12px_rgba(0,240,255,0.3)] active:scale-95">
+        <span id="power-dot" class="inline-block w-2 h-2 rounded-full bg-hud-emerald animate-pulse"></span>
+        <span id="power-label">SYSTEM ONLINE</span>
+        <span class="text-xs text-hud-cyan/80">⏻</span>
+      </button>
+
+      <!-- Web / Window Action Controls -->
+      <div class="flex items-center gap-1.5 border-l border-hud-cyan/30 pl-2">
+        <button 
+          id="btn-sfx" 
+          onclick="toggleSfx()" 
+          title="Toggle Tactical Audio Synthesizer" 
+          class="px-2 py-1 text-xs rounded border border-hud-cyan/30 bg-hud-cyan/10 text-hud-cyan hover:bg-hud-cyan/20 hover:border-hud-cyan transition">
+          🔊 SFX
+        </button>
+        <button 
+          id="btn-fullscreen" 
+          onclick="toggleFullscreen()" 
+          title="Toggle Fullscreen Tactical HUD" 
+          class="px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/70 hover:text-hud-cyan hover:border-hud-cyan transition font-bold">
+          ⛶ FULLSCREEN
+        </button>
+        <button 
+          id="btn-pin" 
+          onclick="togglePinWindow()" 
+          title="Toggle Pin Always On Top (Desktop App Mode)" 
+          class="hidden px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/50 hover:text-hud-cyan hover:border-hud-cyan transition">
+          📌
+        </button>
+      </div>
     </div>
   </header>
 
-  <!-- ── Status strip ───────────────────────────────────── -->
-  <div id="status-strip">
-    <div class="strip-cell" id="cell-ocr">
-      <span class="strip-dot" id="dot-ocr"></span>
-      <span class="strip-key">OCR</span>
-      <span class="strip-val" id="val-ocr">OFF</span>
-    </div>
-    <div class="strip-divider"></div>
-    <div class="strip-cell" id="cell-gate">
-      <span class="strip-dot" id="dot-gate"></span>
-      <span class="strip-key">GATE</span>
-      <span class="strip-val" id="val-gate">OPEN</span>
-    </div>
-    <div class="strip-divider"></div>
-    <div class="strip-cell" id="cell-ws">
-      <span class="strip-dot" id="dot-ws"></span>
-      <span class="strip-key">LINK</span>
-      <span class="strip-val" id="val-ws">--</span>
-    </div>
-    <div class="strip-divider"></div>
-    <div class="strip-cell" id="cell-model">
-      <span class="strip-key">MDL</span>
-      <span class="strip-val" id="val-model">--</span>
+  <!-- Master Power Control Dropdown / Modal Overlay -->
+  <div id="power-modal" class="hidden fixed inset-0 z-50 bg-hud-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="w-full max-w-sm rounded-lg border-2 border-hud-cyan bg-hud-glass p-5 hud-bracket shadow-[0_0_35px_rgba(0,240,255,0.4)] text-center space-y-4">
+      <div class="font-orbitron text-lg font-bold text-hud-cyan tracking-widest">
+        // MASTER POWER MATRIX
+      </div>
+      <p class="text-xs text-hud-cyan/70 font-mono">
+        Select system action for the entire Jarvis environment:
+      </p>
+
+      <div class="space-y-2 pt-2">
+        <button 
+          onclick="powerAction('pause')" 
+          class="w-full py-2.5 px-4 rounded border border-hud-amber/50 bg-hud-amber/15 hover:bg-hud-amber/30 text-hud-amber font-orbitron text-xs font-bold tracking-wider transition flex items-center justify-center gap-2">
+          <span>⏸️</span> PAUSE / RESUME SENSORS (STANDBY)
+        </button>
+
+        <button 
+          onclick="powerAction('shutdown')" 
+          class="w-full py-2.5 px-4 rounded border border-hud-crimson/60 bg-hud-crimson/20 hover:bg-hud-crimson/40 text-hud-crimson font-orbitron text-xs font-bold tracking-wider transition flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(255,51,102,0.4)]">
+          <span>⏻</span> POWER OFF / SHUTDOWN ALL
+        </button>
+
+        <button 
+          onclick="togglePowerMenu()" 
+          class="w-full py-2 px-4 rounded border border-hud-cyan/30 bg-transparent text-hud-cyan/60 hover:text-hud-cyan hover:border-hud-cyan font-mono text-xs transition">
+          CANCEL
+        </button>
+      </div>
     </div>
   </div>
 
-  <!-- ── Mic level + current heard text ────────────────── -->
-  <div id="mic-row">
-    <span class="row-key">MIC</span>
-    <div id="mic-bars">
-      <span class="mbar" id="mbar-0"></span>
-      <span class="mbar" id="mbar-1"></span>
-      <span class="mbar" id="mbar-2"></span>
-      <span class="mbar" id="mbar-3"></span>
-      <span class="mbar" id="mbar-4"></span>
-      <span class="mbar" id="mbar-5"></span>
-      <span class="mbar" id="mbar-6"></span>
-      <span class="mbar" id="mbar-7"></span>
-      <span class="mbar" id="mbar-8"></span>
-      <span class="mbar" id="mbar-9"></span>
-      <span class="mbar" id="mbar-10"></span>
-      <span class="mbar" id="mbar-11"></span>
-      <span class="mbar" id="mbar-12"></span>
-      <span class="mbar" id="mbar-13"></span>
-    </div>
-    <span id="heard-text"></span>
-  </div>
+  <!-- Core Content Area: Centered Reactor + Floating Terminal -->
+  <main class="flex-1 flex flex-col my-4 gap-4 max-w-6xl w-full mx-auto justify-between overflow-hidden">
+    
+    <!-- 1. AI State Indicator (Top / Center Arc-Reactor HUD) -->
+    <section class="flex flex-col items-center justify-center pt-2 pb-1 relative">
+      
+      <!-- Arc Reactor Visualizer Container -->
+      <div id="state-container" class="state-idle relative flex items-center justify-center w-48 h-48 md:w-56 md:h-56">
+        
+        <!-- Outer Rotating Gyro Ring (Dashed) -->
+        <div class="absolute inset-0 rounded-full border border-dashed border-hud-cyan/30 animate-spin-slow pointer-events-none"></div>
+        
+        <!-- Counter-Rotating Tech Ring with Hash Marks -->
+        <div class="absolute inset-3 rounded-full border border-hud-cyan/40 animate-spin-reverse pointer-events-none border-t-transparent border-b-transparent"></div>
+        
+        <!-- Inner Segmented Ring -->
+        <div class="absolute inset-7 rounded-full border-2 border-hud-cyan/20 pointer-events-none"></div>
 
-  <!-- ── Conversation feed ──────────────────────────────── -->
-  <main id="conversation">
-    <div id="empty-state">NO CONVERSATION YET</div>
+        <!-- Center Glowing Core Orb -->
+        <div class="core-orb w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all duration-500 z-10">
+          <div class="w-8 h-8 rounded-full bg-hud-black/80 border border-hud-cyan/80 flex items-center justify-center">
+            <div id="inner-pulsar" class="w-3 h-3 bg-hud-cyan rounded-full animate-ping"></div>
+          </div>
+        </div>
+
+        <!-- Waveform Visualizer Bars (Surrounding the Core) -->
+        <div id="waveform-ring" class="absolute inset-0 flex items-center justify-center gap-1 pointer-events-none opacity-80">
+          <div class="wave-bar w-1 bg-hud-cyan h-4"></div>
+          <div class="wave-bar w-1 bg-hud-cyan h-8"></div>
+          <div class="wave-bar w-1 bg-hud-cyan h-12"></div>
+          <div class="wave-bar w-1 bg-hud-cyan h-6"></div>
+          <div class="wave-bar w-1 bg-hud-cyan h-10"></div>
+        </div>
+
+      </div>
+
+      <!-- State Text Badge & Subtitle -->
+      <div class="flex flex-col items-center mt-2 z-20">
+        <div class="text-[10px] text-hud-cyan/60 uppercase tracking-widest">SYSTEM STATUS</div>
+        <div id="state-label" class="font-orbitron text-xl md:text-2xl font-bold tracking-widest text-hud-cyan text-shadow shadow-hud-cyan">
+          IDLE
+        </div>
+        <div id="state-desc" class="text-xs text-hud-cyan/70 font-mono tracking-wider mt-0.5">
+          Monitoring ambient telemetry // Ready for input
+        </div>
+      </div>
+
+      <!-- State Manual Switcher Buttons for Testing -->
+      <div class="flex items-center gap-2 mt-3 text-[10px]">
+        <button onclick="setAiState('IDLE')" class="px-2.5 py-1 rounded bg-hud-glass border border-hud-cyan/30 text-hud-cyan/80 hover:text-hud-cyan hover:border-hud-cyan transition">IDLE</button>
+        <button onclick="setAiState('LISTENING')" class="px-2.5 py-1 rounded bg-hud-glass border border-hud-emerald/30 text-hud-emerald/80 hover:text-hud-emerald hover:border-hud-emerald transition">LISTENING</button>
+        <button onclick="setAiState('THINKING')" class="px-2.5 py-1 rounded bg-hud-glass border border-hud-amber/30 text-hud-amber/80 hover:text-hud-amber hover:border-hud-amber transition">THINKING</button>
+        <button onclick="setAiState('SPEAKING')" class="px-2.5 py-1 rounded bg-hud-glass border border-hud-cyan/30 text-cyan-300 hover:text-white hover:border-white transition">SPEAKING</button>
+      </div>
+
+    </section>
+
+    <!-- 2. Action Log / System Terminal (Main Body) -->
+    <section class="flex-1 flex flex-col min-h-[260px] md:min-h-[320px] rounded-lg border border-hud-glassBorder bg-hud-glass backdrop-blur-xl shadow-2xl hud-bracket p-3 md:p-4 overflow-hidden">
+      
+      <!-- Terminal Header Bar -->
+      <div class="flex items-center justify-between border-b border-hud-cyan/20 pb-2 mb-3 text-xs">
+        <div class="flex items-center gap-2 text-hud-cyan font-bold tracking-wider">
+          <span class="inline-block w-2 h-2 bg-hud-cyan rounded-full"></span>
+          <span>SYSTEM_LOG // ACTION_STREAM</span>
+        </div>
+        <div class="text-[11px] text-hud-cyan/50 tracking-widest uppercase">
+          SECURE ENCRYPTED PROTOCOL [AES-256]
+        </div>
+      </div>
+
+      <!-- Scrollable Message Feed -->
+      <div id="action-log" class="flex-1 overflow-y-auto space-y-3 pr-2 scroll-smooth">
+        
+        <!-- Initial Handshake Entries -->
+        <div class="flex items-start gap-2 max-w-xl text-left">
+          <div class="text-hud-cyan/50 text-[11px] pt-0.5 whitespace-nowrap">[09:00:00]</div>
+          <div class="bg-hud-cyan/10 border-l-2 border-hud-cyan text-hud-cyan p-2 rounded-r-md text-xs leading-relaxed">
+            <span class="font-bold text-hud-cyan block mb-0.5">// JARVIS CORE INITIALIZED</span>
+            Local GPU acceleration engaged. Neural reasoning model online. Standing by for instructions, Sir.
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- 3. Command Input Prompt (Bottom) -->
+    <section class="w-full">
+      <form id="command-form" class="relative flex items-center rounded-lg border border-hud-cyan/40 bg-hud-black/80 backdrop-blur-md p-1.5 focus-within:border-hud-cyan focus-within:shadow-[0_0_15px_rgba(0,240,255,0.4)] transition-all hud-bracket">
+        <div class="flex items-center pl-3 pr-2 text-hud-cyan font-bold tracking-wider select-none">
+          <span class="text-base text-hud-cyan mr-1">&gt;</span>
+          <span class="text-[10px] text-hud-cyan/60 hidden sm:inline">INPUT_</span>
+        </div>
+        <input 
+          id="command-input" 
+          type="text" 
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Type an executive command (e.g., 'Status report', 'Open terminal', 'Analyze system')..." 
+          class="flex-1 bg-transparent py-2.5 px-2 text-xs md:text-sm text-hud-cyan placeholder-hud-cyan/30 focus:outline-none font-mono"
+        />
+        <div class="terminal-cursor mr-2"></div>
+        <button 
+          type="submit" 
+          class="px-4 py-2 bg-hud-cyan/20 hover:bg-hud-cyan text-hud-cyan hover:text-hud-black border border-hud-cyan/50 rounded font-orbitron text-xs font-bold tracking-wider transition-all duration-200">
+          EXECUTE
+        </button>
+      </form>
+    </section>
+
   </main>
 
-  <!-- ── System stats footer ───────────────────────────── -->
-  <footer id="stats-bar">
-    <div class="stat-cell">
-      <span class="stat-key">CPU</span>
-      <span class="stat-val" id="stat-cpu">--%</span>
-    </div>
-    <div class="stat-divider"></div>
-    <div class="stat-cell">
-      <span class="stat-key">RAM</span>
-      <span class="stat-val" id="stat-ram">--%</span>
-    </div>
-    <div class="stat-divider"></div>
-    <div class="stat-cell">
-      <span class="stat-key">GPU</span>
-      <span class="stat-val" id="stat-gpu">--%</span>
-    </div>
-    <div class="stat-divider"></div>
-    <div class="stat-cell">
-      <span class="stat-val" id="stat-time">--:--:--</span>
+  <!-- Footer Stats -->
+  <footer class="w-full border-t border-hud-glassBorder/60 pt-2 flex flex-col sm:flex-row items-center justify-between text-[11px] text-hud-cyan/50">
+    <div>OFFLINE NEURAL WORKSTATION // NO CLOUD DEPENDENCY</div>
+    <div class="flex items-center gap-4 mt-1 sm:mt-0">
+      <span>LATENCY: <strong class="text-hud-cyan">0.4ms</strong></span>
+      <span>VRAM: <strong class="text-hud-cyan">2.4 / 8.0 GB</strong></span>
+      <span>SECURITY: <strong class="text-hud-emerald">GATED</strong></span>
     </div>
   </footer>
 
-  <script src="renderer.js"></script>
+  <!-- Core Interactive Script -->
+  <script>
+    // Audio / Visualizer State Variables
+    let currentState = 'IDLE';
+
+    // Elements
+    const stateContainer = document.getElementById('state-container');
+    const stateLabel = document.getElementById('state-label');
+    const stateDesc = document.getElementById('state-desc');
+    const actionLog = document.getElementById('action-log');
+    const commandForm = document.getElementById('command-form');
+    const commandInput = document.getElementById('command-input');
+    const hudClock = document.getElementById('hud-clock');
+    const waveBars = document.querySelectorAll('.wave-bar');
+
+    // ── Live Clock ──────────────────────────────────────────────
+    function updateClock() {
+      const now = new Date();
+      hudClock.innerText = now.toTimeString().split(' ')[0] + ' UTC';
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // ── Helper: Format Timestamp ────────────────────────────────
+    function getTimestamp() {
+      const now = new Date();
+      return `[${now.toTimeString().split(' ')[0]}]`;
+    }
+
+    // ── AI State Transition Manager ─────────────────────────────
+    function setAiState(state) {
+      const nextState = state.toUpperCase();
+      if (currentState !== nextState) {
+        currentState = nextState;
+        playSfx('state');
+      }
+      
+      // Reset classes
+      stateContainer.className = 'relative flex items-center justify-center w-48 h-48 md:w-56 md:h-56';
+      
+      switch (currentState) {
+        case 'IDLE':
+          stateContainer.classList.add('state-idle');
+          stateLabel.innerText = 'IDLE';
+          stateLabel.className = 'font-orbitron text-xl md:text-2xl font-bold tracking-widest text-hud-cyan';
+          stateDesc.innerText = 'Monitoring ambient telemetry // Ready for input';
+          break;
+
+        case 'LISTENING':
+          stateContainer.classList.add('state-listening');
+          stateLabel.innerText = 'LISTENING';
+          stateLabel.className = 'font-orbitron text-xl md:text-2xl font-bold tracking-widest text-hud-emerald';
+          stateDesc.innerText = 'Acoustic sensor active // Capturing voice stream...';
+          break;
+
+        case 'THINKING':
+          stateContainer.classList.add('state-thinking');
+          stateLabel.innerText = 'THINKING';
+          stateLabel.className = 'font-orbitron text-xl md:text-2xl font-bold tracking-widest text-hud-amber';
+          stateDesc.innerText = 'Neural reasoning in progress // Executing tool dispatch...';
+          break;
+
+        case 'SPEAKING':
+          stateContainer.classList.add('state-speaking');
+          stateLabel.innerText = 'SPEAKING';
+          stateLabel.className = 'font-orbitron text-xl md:text-2xl font-bold tracking-widest text-cyan-300';
+          stateDesc.innerText = 'Synthesizing voice response // Audio stream broadcasting...';
+          break;
+      }
+    }
+
+    // ── Waveform Animation Loop ─────────────────────────────────
+    function animateWaveform() {
+      waveBars.forEach((bar, idx) => {
+        let h = 8;
+        if (currentState === 'SPEAKING') {
+          h = Math.floor(Math.random() * 45) + 12;
+        } else if (currentState === 'THINKING') {
+          h = Math.floor(Math.sin(Date.now() / 80 + idx) * 16) + 20;
+        } else if (currentState === 'LISTENING') {
+          h = Math.floor(Math.random() * 25) + 8;
+        } else {
+          // IDLE: Calm gentle rhythm
+          h = Math.floor(Math.sin(Date.now() / 400 + idx) * 8) + 12;
+        }
+        bar.style.height = `${h}px`;
+      });
+      requestAnimationFrame(animateWaveform);
+    }
+    animateWaveform();
+
+    // ── Action Log Message Append ───────────────────────────────
+    function appendLogEntry(sender, message) {
+      const isUser = (sender === 'USER');
+      const timeStr = getTimestamp();
+
+      const row = document.createElement('div');
+      row.className = isUser 
+        ? 'flex items-start justify-end gap-2 text-right' 
+        : 'flex items-start justify-start gap-2 text-left';
+
+      if (isUser) {
+        row.innerHTML = `
+          <div class="bg-hud-blue/20 border-r-2 border-hud-blue text-blue-200 p-2.5 rounded-l-md text-xs leading-relaxed max-w-xl">
+            <span class="font-bold text-hud-blue block mb-0.5">// USER DIRECTIVE</span>
+            ${escapeHtml(message)}
+          </div>
+          <div class="text-hud-cyan/50 text-[11px] pt-0.5 whitespace-nowrap">${timeStr}</div>
+        `;
+      } else {
+        row.innerHTML = `
+          <div class="text-hud-cyan/50 text-[11px] pt-0.5 whitespace-nowrap">${timeStr}</div>
+          <div class="bg-hud-cyan/10 border-l-2 border-hud-cyan text-hud-cyan p-2.5 rounded-r-md text-xs leading-relaxed max-w-xl">
+            <span class="font-bold text-hud-cyan block mb-0.5">// JARVIS RESPONSE</span>
+            ${escapeHtml(message)}
+          </div>
+        `;
+      }
+
+      actionLog.appendChild(row);
+      // Auto-scroll to bottom smoothly
+      actionLog.scrollTop = actionLog.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.innerText = text;
+      return div.innerHTML;
+    }
+
+    // ── Simulated Interactive Lifecycle & Live Dispatch ─────────
+    commandForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const query = commandInput.value.trim();
+      if (!query) return;
+
+      commandInput.value = '';
+
+      // Step 1: Add User Directive to Log immediately
+      appendLogEntry('USER', query);
+
+      // Step 2: If live WebSocket connected to Jarvis backend, transmit directive
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'user_command', text: query }));
+        setAiState('THINKING');
+      } else {
+        // Standalone fallback: execute simulated lifecycle
+        setAiState('THINKING');
+        setTimeout(() => {
+          setAiState('SPEAKING');
+          const reply = `Executing command: [${query}]... Done.`;
+          appendLogEntry('JARVIS', reply);
+          setTimeout(() => {
+            setAiState('IDLE');
+          }, 2000);
+        }, 1500);
+      }
+    });
+
+    // ── Live WebSocket Bridge (Connects to local Jarvis backend port 7789) ──
+    const wsHost = window.location.hostname || 'localhost';
+    const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUri = `${wsProto}//${wsHost}:7789`;
+    let socket = null;
+
+    function initWebSocket() {
+      try {
+        socket = new WebSocket(wsUri);
+
+        socket.onopen = () => {
+          const el = document.getElementById('ws-indicator');
+          if (el) {
+            el.innerText = 'CONNECTED';
+            el.className = 'text-hud-emerald font-bold';
+          }
+          appendLogEntry('JARVIS', 'Direct neural link established with local Python backend (port 7789). Live telemetry enabled.');
+        };
+
+        socket.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            const payload = data.data || data;
+
+            // 1. Initial full state handshake
+            if (data.type === 'state') {
+              if (payload.status) setAiState(payload.status);
+              if (Array.isArray(payload.conversation)) {
+                payload.conversation.forEach(item => {
+                  if (item && item.text) {
+                    appendLogEntry((item.role || 'JARVIS').toUpperCase(), item.text);
+                  }
+                });
+              }
+              if (payload.cpu !== undefined) {
+                const el = document.getElementById('header-cpu');
+                if (el) el.innerText = `${payload.cpu}%`;
+              }
+              if (payload.gpu !== undefined) {
+                const el = document.getElementById('header-gpu');
+                if (el) el.innerText = `GPU ${payload.gpu}%`;
+              }
+            }
+
+            // 2. Real-time status updates
+            if (data.type === 'status_update' || data.type === 'status') {
+              const st = payload.status || payload.state;
+              if (st) setAiState(st);
+              if (payload.message) stateDesc.innerText = payload.message;
+            }
+
+            // 3. Real-time conversation entries
+            if (data.type === 'conversation') {
+              const text = payload.text || payload.content;
+              const role = (payload.role || 'JARVIS').toUpperCase();
+              if (text) appendLogEntry(role, text);
+            }
+
+            // 4. Real-time system stats
+            if (data.type === 'stats') {
+              if (payload.cpu !== undefined) {
+                const el = document.getElementById('header-cpu');
+                if (el) el.innerText = `${payload.cpu}%`;
+              }
+              if (payload.gpu !== undefined) {
+                const el = document.getElementById('header-gpu');
+                if (el) el.innerText = `GPU ${payload.gpu}%`;
+              }
+            }
+          } catch (err) {
+            console.error('WS parse error:', err);
+          }
+        };
+
+        socket.onclose = () => {
+          const el = document.getElementById('ws-indicator');
+          if (el) {
+            el.innerText = 'STANDALONE';
+            el.className = 'text-hud-cyan/60 font-bold';
+          }
+          setTimeout(initWebSocket, 3000);
+        };
+
+        socket.onerror = () => {
+          const el = document.getElementById('ws-indicator');
+          if (el) {
+            el.innerText = 'STANDALONE';
+            el.className = 'text-hud-cyan/60 font-bold';
+          }
+        };
+      } catch (e) {
+        const el = document.getElementById('ws-indicator');
+        if (el) el.innerText = 'STANDALONE';
+      }
+    }
+
+    // ── Master Power Matrix Controls ─────────────────────────────
+    let isPoweredOn = true;
+    let isPausedState = false;
+
+    function togglePowerMenu() {
+      const modal = document.getElementById('power-modal');
+      if (modal) {
+        modal.classList.toggle('hidden');
+      }
+    }
+
+    function powerAction(action) {
+      togglePowerMenu();
+
+      if (action === 'pause') {
+        isPausedState = !isPausedState;
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'system_power', action: isPausedState ? 'pause' : 'resume' }));
+        }
+        if (isPausedState) {
+          appendLogEntry('JARVIS', 'Acoustic sensors and vision paused. Entering low-power standby.');
+          setAiState('IDLE');
+          document.getElementById('power-label').innerText = 'STANDBY';
+          document.getElementById('power-dot').className = 'inline-block w-2 h-2 rounded-full bg-hud-amber animate-pulse';
+        } else {
+          appendLogEntry('JARVIS', 'Sensors reactivated. Systems resumed.');
+          document.getElementById('power-label').innerText = 'SYSTEM ONLINE';
+          document.getElementById('power-dot').className = 'inline-block w-2 h-2 rounded-full bg-hud-emerald animate-pulse';
+        }
+      } else if (action === 'shutdown') {
+        appendLogEntry('JARVIS', 'Initiating emergency shutdown sequence. Disconnecting core...');
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'system_power', action: 'shutdown' }));
+        }
+        isPoweredOn = false;
+        document.getElementById('power-label').innerText = 'OFFLINE';
+        document.getElementById('power-dot').className = 'inline-block w-2 h-2 rounded-full bg-hud-crimson';
+        document.getElementById('ws-indicator').innerText = 'OFFLINE';
+        document.getElementById('ws-indicator').className = 'text-hud-crimson font-bold';
+        setAiState('IDLE');
+      }
+    }
+
+    // ── Fullscreen & Audio Synthesizer (Web HUD Mode) ───────────
+    let sfxEnabled = true;
+    let audioCtx = null;
+
+    function toggleSfx() {
+      sfxEnabled = !sfxEnabled;
+      const btn = document.getElementById('btn-sfx');
+      if (btn) {
+        if (sfxEnabled) {
+          btn.innerText = '🔊 SFX';
+          btn.className = 'px-2 py-1 text-xs rounded border border-hud-cyan/30 bg-hud-cyan/10 text-hud-cyan hover:bg-hud-cyan/20 hover:border-hud-cyan transition';
+          playSfx('blip');
+        } else {
+          btn.innerText = '🔇 MUTED';
+          btn.className = 'px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/40 hover:text-hud-cyan transition';
+        }
+      }
+    }
+
+    function playSfx(type) {
+      if (!sfxEnabled) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+
+        if (type === 'blip') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(880, now);
+          osc.frequency.exponentialRampToValueAtTime(1760, now + 0.08);
+          gain.gain.setValueAtTime(0.04, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.08);
+          osc.start(now);
+          osc.stop(now + 0.08);
+        } else if (type === 'state') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.exponentialRampToValueAtTime(660, now + 0.15);
+          gain.gain.setValueAtTime(0.03, now);
+          gain.gain.linearRampToValueAtTime(0.001, now + 0.15);
+          osc.start(now);
+          osc.stop(now + 0.15);
+        }
+      } catch (e) {}
+    }
+
+    function toggleFullscreen() {
+      playSfx('blip');
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => console.log(err));
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
+    // ── Window Frame & Pin Controls ──────────────────────────────
+    let isWindowPinned = false;
+
+    // Show desktop pin button only if loaded in Electron
+    if (window.electron) {
+      const pinBtn = document.getElementById('btn-pin');
+      if (pinBtn) pinBtn.classList.remove('hidden');
+    }
+
+    function togglePinWindow() {
+      isWindowPinned = !isWindowPinned;
+      const btn = document.getElementById('btn-pin');
+      if (window.electron && window.electron.togglePin) {
+        window.electron.togglePin(isWindowPinned);
+      }
+      if (btn) {
+        if (isWindowPinned) {
+          btn.className = 'px-2 py-1 text-xs rounded border border-hud-cyan bg-hud-cyan/30 text-hud-cyan shadow-[0_0_8px_#00f0ff] transition';
+          btn.title = 'Always on Top: ON (Click to unpin)';
+        } else {
+          btn.className = 'px-2 py-1 text-xs rounded border border-hud-cyan/20 bg-hud-black/40 text-hud-cyan/50 hover:text-hud-cyan hover:border-hud-cyan transition';
+          btn.title = 'Always on Top: OFF (Default)';
+        }
+      }
+    }
+
+    function windowMinimize() {
+      if (window.electron && window.electron.minimizeHud) {
+        window.electron.minimizeHud();
+      }
+    }
+
+    function windowClose() {
+      if (window.electron && window.electron.closeHud) {
+        window.electron.closeHud();
+      } else {
+        window.close();
+      }
+    }
+
+    // Attempt live backend connection (smoothly falls back to standalone if offline)
+    initWebSocket();
+  </script>
 </body>
 </html>

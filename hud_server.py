@@ -16,11 +16,108 @@ import json
 import logging
 import threading
 import time
+import http.server
+from pathlib import Path
 from typing import Any
 
 import psutil
 
 logger = logging.getLogger("HUDServer")
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+class JarvisHUDHTTPHandler(http.server.BaseHTTPRequestHandler):
+    """Serves the JARVIS Tactical HUD web interface on localhost:7788."""
+
+    def log_message(self, format, *args):
+        # Silence default access logs to keep terminal quiet
+        pass
+
+    def do_HEAD(self):
+        self.do_GET()
+
+    def do_GET(self):
+        clean_path = self.path.split("?")[0].rstrip("/")
+
+        # Root route: serve jarvis_hud.html directly
+        if clean_path in ("", "/index.html", "/hud"):
+            hud_file = PROJECT_ROOT / "jarvis_hud.html"
+            if not hud_file.exists():
+                hud_file = PROJECT_ROOT / "hud" / "index.html"
+
+            if hud_file.exists():
+                content = hud_file.read_bytes()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+                self.end_headers()
+                self.wfile.write(content)
+                return
+            else:
+                self.send_error(404, "jarvis_hud.html not found")
+                return
+
+        # Simple JSON state API for health checks / polling
+        elif clean_path in ("/api/state", "/api/status"):
+            data = json.dumps(_state, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return
+
+        elif clean_path == "/api/ping":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(b"pong")
+            return
+
+        # Serve static assets from project root or hud directory
+        rel_path = clean_path.lstrip("/")
+        target_file = (PROJECT_ROOT / rel_path).resolve()
+        try:
+            target_file.relative_to(PROJECT_ROOT)
+        except ValueError:
+            self.send_error(403, "Forbidden")
+            return
+
+        if target_file.is_file():
+            content = target_file.read_bytes()
+            mime = "application/octet-stream"
+            suffix = target_file.suffix.lower()
+            if suffix == ".html": mime = "text/html; charset=utf-8"
+            elif suffix == ".css": mime = "text/css; charset=utf-8"
+            elif suffix == ".js": mime = "application/javascript; charset=utf-8"
+            elif suffix == ".json": mime = "application/json; charset=utf-8"
+            elif suffix == ".png": mime = "image/png"
+            elif suffix in (".jpg", ".jpeg"): mime = "image/jpeg"
+            elif suffix == ".svg": mime = "image/svg+xml"
+            elif suffix == ".ico": mime = "image/x-icon"
+
+            self.send_response(200)
+            self.send_header("Content-Type", mime)
+            self.send_header("Content-Length", str(len(content)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(content)
+            return
+
+        self.send_error(404, "Not Found")
+
+
+def _start_http_server(host="0.0.0.0", port=7788):
+    """Runs standard library ThreadingHTTPServer on port 7788."""
+    try:
+        server = http.server.ThreadingHTTPServer((host, port), JarvisHUDHTTPHandler)
+        logger.info(f"HUD Website active on http://localhost:{port} (and http://127.0.0.1:{port})")
+        server.serve_forever()
+    except Exception as e:
+        logger.warning(f"Could not bind HUD HTTP server on {host}:{port}: {e}")
 
 # ── Optional deps ──────────────────────────────────────────────
 try:
@@ -191,16 +288,22 @@ def set_model(name: str) -> None:
 
 
 def start() -> None:
-    """Start the HUD WebSocket server in a background daemon thread."""
+    """Start the HUD HTTP website server and WebSocket server in background daemon threads."""
     global _loop, _evt_queue, _started
 
     if _started:
         return
-    if not _HAS_WS:
-        logger.warning("HUD server not started: install websockets (`pip install websockets`)")
-        return
 
     _started = True
+
+    # 1. Start HTTP website server (http://localhost:7788)
+    http_t = threading.Thread(target=_start_http_server, name="HUDHTTPServer", daemon=True)
+    http_t.start()
+
+    # 2. Start WebSocket bridge (ws://localhost:7789)
+    if not _HAS_WS:
+        logger.warning("HUD WebSocket server not started: install websockets (`pip install websockets`)")
+        return
 
     def _run() -> None:
         global _loop, _evt_queue
@@ -210,8 +313,8 @@ def start() -> None:
         try:
             _loop.run_until_complete(_serve())
         except Exception as exc:
-            logger.error("HUD server error: %s", exc)
+            logger.error("HUD WebSocket server error: %s", exc)
 
-    t = threading.Thread(target=_run, name="HUDServer", daemon=True)
+    t = threading.Thread(target=_run, name="HUDWSServer", daemon=True)
     t.start()
-    logger.info("HUD server thread started (ws://localhost:7789)")
+    logger.info("HUD servers active: HTTP -> http://localhost:7788 | WS -> ws://localhost:7789")

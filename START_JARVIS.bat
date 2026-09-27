@@ -20,14 +20,9 @@ if not errorlevel 1 (
     timeout /t 3 /nobreak >nul
 )
 
-:: 2. Launch HUD
-echo [2/2] Launching Tactical HUD Dashboard...
-cd /d "%~dp0hud"
-if exist node_modules (
-    start "" /B npx electron .
-) else (
-    start "" "%~dp0jarvis_hud.html"
-)
+:: 2. Launch Localhost Website HUD
+echo [2/2] Launching Tactical HUD Website on http://localhost:7788...
+start "" "http://localhost:7788"
 
 echo [READY] Jarvis is ONLINE.
 exit /b 0
