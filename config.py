@@ -16,6 +16,20 @@ LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 ACTIVITY_LOG_FILE = LOG_DIR / "jarvis_activity.log"
 
+# Load local .env variables if present
+_env_path = BASE_DIR / ".env"
+if _env_path.exists():
+    try:
+        for _line in _env_path.read_text(encoding="utf-8").splitlines():
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                _k, _v = _k.strip(), _v.strip().strip("\"'")
+                if _k and _k not in os.environ:
+                    os.environ[_k] = _v
+    except Exception:
+        pass
+
 # Speech-To-Text (faster-whisper) Settings
 STT_MODEL_NAME = "small.en"  # "small.en" (recommended, high accuracy), "base.en", or "tiny.en"
 STT_MODEL_SIZE = STT_MODEL_NAME
@@ -59,4 +73,12 @@ FACE_RECOGNITION_ENABLED = True
 FACE_GATE_BYPASS = True           # Set to True to bypass face gating for debugging
 FACE_CHECK_INTERVAL = 4.0         # Seconds between background webcam face checks
 FACE_TOLERANCE = 0.52             # Distance threshold (lower = stricter match)
+
+# Spotify Web API Settings (Official Developer API)
+# Get your credentials at: https://developer.spotify.com/dashboard
+# 1. Create an App -> set Redirect URI to: http://localhost:8888/callback
+# 2. Paste your Client ID and Client Secret below:
+SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID", "")
+SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET", "")
+SPOTIFY_REDIRECT_URI = os.getenv("SPOTIFY_REDIRECT_URI", "http://localhost:8888/callback")
 

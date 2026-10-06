@@ -24,6 +24,11 @@ CRITICAL RULES:
    - NEVER use markdown formatting, bold asterisks (**), bullet points, emojis, or code blocks in spoken conversational replies.
 3. EXPLICIT COMPUTER ACTIONS (Only invoke tools when {config.USER_NAME} gives an action command):
    - To play songs on Spotify: invoke media_control(platform="spotify", query="<song>", action="play").
+   - To pause or stop music on Spotify: invoke media_control(platform="spotify", action="pause").
+   - To resume Spotify playback: invoke media_control(platform="spotify", action="resume").
+   - To skip to next song on Spotify: invoke media_control(platform="spotify", action="next").
+   - To go to previous song on Spotify: invoke media_control(platform="spotify", action="previous").
+   - To check what song is currently playing: invoke media_control(platform="spotify", action="current").
    - To play videos on YouTube (e.g. "play X on youtube", "play minecraft"): invoke media_control(platform="youtube", query="<title>", action="play").
    - To play a specific numbered video (e.g. "play that second video"): invoke media_control(platform="youtube", query="<title>", action="play", index=2).
    - To click anything on screen (e.g. "click on first video", "click search", "click upload"): invoke click_on_text(target_text="first video" or label).

@@ -13,6 +13,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 from core.logger import logger
+from core.spotify_client import spotify_controller
 import config
 
 try:
@@ -245,7 +246,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "media_control",
-            "description": "Play or search songs on Spotify, or play/search videos on YouTube. Use this ONLY for media playback commands.",
+            "description": "Control music and media playback on Spotify or YouTube. Supports playing songs, pausing, resuming, skipping tracks, and querying what is playing.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -254,21 +255,25 @@ TOOL_DEFINITIONS = [
                         "enum": ["spotify", "youtube"],
                         "description": "Target media platform: 'spotify' or 'youtube'."
                     },
-                    "query": {
-                        "type": "string",
-                        "description": "The song title, artist, or YouTube video to play or search."
-                    },
                     "action": {
                         "type": "string",
-                        "enum": ["play", "search"],
-                        "description": "'play' to immediately start playing the video or song, or 'search' to open search results."
+                        "enum": ["play", "search", "pause", "resume", "next", "previous", "current", "volume"],
+                        "description": "Action to perform: 'play', 'search', 'pause', 'resume', 'next', 'previous', 'current' (what song is playing), or 'volume'."
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "The song title, artist, or YouTube video to play or search (required for play/search actions)."
+                    },
+                    "volume": {
+                        "type": "integer",
+                        "description": "Volume level (0 to 100) when action is 'volume'."
                     },
                     "index": {
                         "type": "integer",
-                        "description": "Optional ordinal video number to play (e.g. 1 for first video, 2 for second video)."
+                        "description": "Optional ordinal video number for YouTube (e.g. 1 for first video)."
                     }
                 },
-                "required": ["platform", "query"]
+                "required": ["platform"]
             }
         }
     },
@@ -806,13 +811,75 @@ class ToolExecutor:
         except (ValueError, TypeError):
             target_idx = 1
 
-        if not query:
-            return "Please specify a song, artist, or video title."
-
-        encoded = urllib.parse.quote(query)
-
         if "spotify" in platform:
-            logger.log("ACTION", f"Searching Spotify for '{query}' (action={action})")
+            logger.log("ACTION", f"Processing Spotify media command: action={action}, query='{query}'")
+
+            # 1. Playback Pause
+            if action in ("pause", "stop"):
+                if spotify_controller.is_configured():
+                    return spotify_controller.pause()
+                if pyautogui:
+                    pyautogui.press("playpause")
+                    return "Sent pause command to media player."
+                return "Spotify pause command dispatched."
+
+            # 2. Playback Resume
+            if action == "resume":
+                if spotify_controller.is_configured():
+                    return spotify_controller.resume()
+                if pyautogui:
+                    pyautogui.press("playpause")
+                    return "Sent resume command to media player."
+                return "Spotify resume command dispatched."
+
+            # 3. Next Track
+            if action in ("next", "skip"):
+                if spotify_controller.is_configured():
+                    return spotify_controller.next_track()
+                if pyautogui:
+                    pyautogui.press("nexttrack")
+                    return "Skipped to next track via media key."
+                return "Next track command sent."
+
+            # 4. Previous Track
+            if action in ("previous", "prev", "back"):
+                if spotify_controller.is_configured():
+                    return spotify_controller.previous_track()
+                if pyautogui:
+                    pyautogui.press("prevtrack")
+                    return "Skipped to previous track via media key."
+                return "Previous track command sent."
+
+            # 5. What's Playing (Current Track Info)
+            if action in ("current", "info", "what"):
+                if spotify_controller.is_configured():
+                    info = spotify_controller.get_current_track()
+                    return f"Currently playing on Spotify: {info}" if info else "No song currently playing on Spotify."
+                return "Spotify API credentials required in config.py to query current track metadata."
+
+            # 6. Volume Control
+            if action == "volume":
+                vol = args.get("volume", 50)
+                if spotify_controller.is_configured():
+                    return spotify_controller.set_volume(vol)
+                return self._tool_system_control({"action": "set_volume", "level": vol})
+
+            # 7. Play / Search Song
+            if not query:
+                if action == "play":
+                    if spotify_controller.is_configured():
+                        return spotify_controller.resume()
+                    if pyautogui:
+                        pyautogui.press("playpause")
+                        return "Resumed Spotify playback."
+                return "Please specify a song, artist, or playlist to play on Spotify."
+
+            # If Spotify API is configured, use the Web API directly
+            if spotify_controller.is_configured():
+                return spotify_controller.play(query)
+
+            # Fallback mode: Desktop app URI search + Enter
+            encoded = urllib.parse.quote(query)
             try:
                 subprocess.Popen(["powershell", "-c", f"Start-Process 'spotify:search:{encoded}'"], shell=True)
                 if action == "play":
@@ -821,7 +888,7 @@ class ToolExecutor:
                         if pyautogui:
                             pyautogui.press("enter")
                     threading.Thread(target=_do_play_spotify, daemon=True).start()
-                    return f"Playing '{query}' on Spotify."
+                    return f"Playing '{query}' on Spotify desktop app. (Tip: add Spotify API keys in config.py for instant background control)."
                 return f"Opened Spotify search for '{query}'."
             except Exception:
                 webbrowser.open(f"https://open.spotify.com/search/{encoded}")

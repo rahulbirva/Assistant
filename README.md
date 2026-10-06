@@ -90,14 +90,43 @@ Simply speak into your microphone, or type commands into the **`> INPUT_`** bar 
 | Directive | What JARVIS Does |
 | :--- | :--- |
 | *"What time is it and how is the battery?"* | Speaks current time, date, and battery level |
-| *"Open YouTube"* / *"Open Spotify"* | Launches application or navigates to website |
+| *"Play Daft Punk on Spotify"* | Searches & instantly plays artist/track on Spotify |
+| *"Pause Spotify"* / *"Resume music"* | Pauses or resumes active Spotify playback |
+| *"Next song"* / *"Skip track on Spotify"* | Skips to the next song in your queue |
+| *"Previous song on Spotify"* | Returns to the previous track |
+| *"What song is this?"* | Speaks currently playing track name and artist |
+| *"Set Spotify volume to 80 percent"* | Directly adjusts Spotify player volume |
 | *"Play Bohemian Rhapsody on YouTube"* | Searches and starts video playback directly |
-| *"Play Daft Punk on Spotify"* | Opens Spotify and searches the artist/track |
+| *"Open YouTube"* / *"Open Spotify"* | Launches application or navigates to website |
 | *"Turn the volume up"* / *"Mute the audio"* | Adjusts master Windows audio volume |
 | *"Set screen brightness to 70 percent"* | Adjusts display backlight via DDC/CI |
 | *"Read what is on my screen"* | Takes a screenshot, runs OCR, and summarizes visible text |
 | *"Create a note named todo.txt with buy milk"* | Creates file in workspace directory |
 | *"Check system performance"* | Reports CPU, GPU, RAM, and Wi-Fi status |
+
+---
+
+## 🎵 Spotify Official API Setup (Instant Background Control)
+
+JARVIS supports both **official Spotify Web API** (seamless background playback without switching windows) and **desktop fallback mode**.
+
+To enable direct API control:
+1. Log in to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
+2. Click **Create app**:
+   - **App name:** `JARVIS Assistant`
+   - **Redirect URI:** `http://localhost:8888/callback`
+   - Select **Web API** and save.
+3. Open **Settings** on your new app to view your **Client ID** and **Client Secret**.
+4. Open [`config.py`](file:///c:/Users/RAHUL/Downloads/Work%20(IMP)/Assistant/config.py) (or create a `.env` file) and paste:
+   ```python
+   SPOTIFY_CLIENT_ID = "your_client_id_here"
+   SPOTIFY_CLIENT_SECRET = "your_client_secret_here"
+   ```
+5. Run the diagnostic to test your connection:
+   ```cmd
+   python test_spotify.py
+   ```
+   *(A browser window will open once to grant permission. Your session is securely cached in `data/` for future use).*
 
 ---
 
