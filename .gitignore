@@ -8,3 +8,6 @@ data/faces/*.jpg
 data/faces/*.pkl
 !data/faces/.gitkeep
 data/test_scratch/
+.env
+data/.spotify_token_cache*
+.cache*
